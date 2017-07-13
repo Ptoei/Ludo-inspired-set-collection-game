@@ -43,24 +43,28 @@ class MainTK:
         self.game = Game.Game(config,self.grid,self)        # Initialize the game manager
 
         ''' Add end-of-turn button'''
-        self.end_turn = tkinter.Button(self.master, text='End turn', command= lambda: self.game.end_player_turn(self,self.grid), anchor='e', justify='left', padx=2) # End of turn
+        self.end_turn = tkinter.Button(self.master, text='End turn', command = lambda: self.game.end_player_turn(self,self.grid), anchor='e', justify='left', padx=2) # End of turn
         self.end_turn.grid(column=1,row=0)
+
+        ''' Add a quit botton '''
+        self.quit_button = tkinter.Button(self.master, text='Quit game', command = lambda: self.kill_choice(), anchor = 'e', justify = 'left',padx=2)
+        self.quit_button.grid(column=2,row=0)
 
         ''' Add score indicators for the players. '''
         labref = tkinter.Label(self.master,text='Player points:', font=('bold')).grid(column=1, row=1, sticky='W')
         self.score_field = tkinter.Text(self.master,width=30,height=self.game.n_players)
-        self.score_field.grid(column=1,row=2)
+        self.score_field.grid(columnspan=2, column=1, row=2)
         self.game.update_points(self)       # Put info in the points field
 
         ''' Add indicators for keeping track of the resource drawpile sizes. '''
         tkinter.Label(self.master,text='Resource cards remaining:', font=('bold')).grid(column=1, row=3, sticky='W')
         self.card_field = tkinter.Text(self.master,width=30,height=5)
-        self.card_field.grid(column=1,row=4)
+        self.card_field.grid(columnspan=2, column=1,row=4)
         self.game.update_card_counts(self)  # Put info in the resource count field
 
         tkinter.Label(self.master,text='Messages:', font=('bold')).grid(column=1, row=5, sticky='W')
         self.message_field = tkinter.Text(self.master,width=30,height=10)
-        self.message_field.grid(column=1,row=6)
+        self.message_field.grid(columnspan=2, column=1,row=6)
 
         self.board.bind("<Button 1>", lambda event: self.click(event))  # Mouse click event for the game map
         self.popup = []         # Iniitialize reference variable to popup windows so we can destroy them from everywhere.
@@ -198,7 +202,6 @@ class MainTK:
             rows = rows + 1
 
         self.master.wait_window(self.popup)  # Create a popup window and wait for it to close
-        self.enable_canvas = True # Release the canvas
 
     def highlight_hex(self,index,type):
         '''Runs draw_hex and adds the reference to the objects to the sel_hex list'''
@@ -210,25 +213,47 @@ class MainTK:
 
         self.sel_items = self.sel_items + [refs]
 
+    def kill(self,message):
+        ''' Displays a popup with who won the game. When this is closed, the programm is killed. '''
 
-    def remove_object(self,index):
-        ''' Removes the object marker at hex index '''
-        self.board.delete(self.objects_shape[index])
-        self.board.delete(self.objects_text[index])
-        self.objects_shape[index] = [None]
-        self.objects_text[index] = [None]
+        self.popup = tkinter.Toplevel(self.master)
+        t = tkinter.Text(self.popup,width = 30, height = 10)
+        t.insert('end',message)
+        t.grid(row=0, column= 0, sticky='W')
+        self.master.wait_window(self.popup)  # Create a popup window and wait for it to close
+        self.master.quit()
 
-    def remove_selected_items(self):
-        ''' Removes all highlighted hexes '''
-        for i in self.sel_items:
-            self.board.delete(i)
-        self.sel_items = []
+    def kill_choice(self):
+        ''' Displays a yes/no option when the quit button is pressed and then acts accourdingly.'''
+        if self.popup:
+            self.popup.destroy()
+
+        self.popup = tkinter.Toplevel(self.master)
+        msg = tkinter.Label(text='Are you sure you want to quit?')
+        yes = tkinter.Button(self.popup,text = 'Yes',command=lambda: self.game.quit(self))
+        no = tkinter.Button(self.popup,text = 'No',command=lambda: self.popup.destroy())
+
+        msg.grid(row=0,columnspan=2)
+        yes.grid(row=1,column=0)
+        no.grid(row=1,column=1)
 
     def player_resources_popup(self, index, game, grid):
         '''Prints an overview of the resources in the stack belonging to an object on the board.'''
         this_object = getattr(game,grid.objects[index]) # Retrieve the object located on hex index
         self.popup = tkinter.Toplevel(self.master)      # Create a popup window and wait for it to close)
-        t = tkinter.Text(self.popup,width = 30)
+
+        tkinter.Label(self.popup, text = 'Move resources').grid(columnspan=2, row=0, sticky='W')
+
+        ''' Show object info'''
+        ''' First prepare a string to indicate whether the clicked object belongs to the active player.'''
+        t = tkinter.Text(self.popup,width=30,height=1)
+        t.config(wrap=tkinter.WORD)
+        t.grid(columnspan=2,row=1)
+        if this_object.owner == game.current_player:
+           isactive = ' (active player)'
+        else:
+           isactive = ''
+        t.insert('end',this_object.label + isactive + '\n')
 
         ''' TODO Position the popup in the corner furthest away from the clicked hex in order to prevent overlap with reachable hexes. '''
         ''' For now I just position the window right of the board.'''
@@ -236,18 +261,7 @@ class MainTK:
         w_main = self.master.winfo_width()
         self.popup.geometry('+' + str(w_main) + '+' + str(y_main))
 
-        t.config(wrap=tkinter.WORD)
-        t.grid(row=1, column= 0, sticky='W')
 
-        ''' Show object info'''
-        ''' First prepare a string to indicate whether the clicked object belongs to the active player.'''
-        if this_object.owner == game.current_player:
-            isactive = ' (active player)'
-        else:
-            isactive = ''
-        t.insert('end',this_object.label + isactive + '\n')
-
-        tkinter.Label(self.popup, text = 'Move resources').grid(row=0, sticky='W')
         ''' Create a list of checkboxes for all resources'''
         rows = 1 # Count the number of rows in the popup window
         keep_i = 0 # Dummy for counting the number of resources and updating the total nr of rows in the widget later.
@@ -260,7 +274,7 @@ class MainTK:
                 this_object.resources.stack[i - rows].metal + ' ' + this_object.resources.stack[i-rows].fuel + ' ' + \
                 this_object.resources.stack[i - rows].collect + ')'
 
-            checks.append([tkinter.Checkbutton(t, text = desc,variable = vars[i-rows]).grid(row = i, column=0, stick = 'W')])
+            checks.append([tkinter.Checkbutton(t, text = desc,variable = vars[i-rows]).grid(row = i, column=0,sticky='w')])
             keep_i = i
         rows = keep_i
 
@@ -271,18 +285,19 @@ class MainTK:
         dest_home = [x for i, x in enumerate(conn_1) if (game.current_player + 'home') in grid.objects[x]]
         dest_boat = [x for i, x in enumerate(conn_1) if (game.current_player + 'boat') in grid.objects[x]]
 
+        rows = 3
         ''' For each harbour, home base and boat 1 step removed, add a button for shifting resources.'''
         for i in dest_harbour:
-            tkinter.Button(t, text=grid.objects[i], command=lambda i=i: game.shift_resources(grid, self, index, i, vars)).grid(row = rows+i+1, column=0, sticky='W', pady=4)
+            tkinter.Button(self.popup, text=grid.objects[i], command=lambda i=i: game.shift_resources(grid, self, index, i, vars)).grid(row = rows+i+1, column=0, sticky='W', pady=4)
             rows = rows + 1
 
         for i in dest_home:
-            tkinter.Button(t, text=grid.objects[i], command=lambda i=i: game.shift_resources(grid, self, index, i, vars)).grid(row = rows+i+1, column=0, sticky='W', pady=4)
+            tkinter.Button(self.popup, text=grid.objects[i], command=lambda i=i: game.shift_resources(grid, self, index, i, vars)).grid(row = rows+i+1, column=0, sticky='W', pady=4)
             rows = rows + 1
 
         for i in dest_boat:
             #tkinter.Button(popup, text=grid.objects[i], command=print('boat'+str(i))).grid(row=rows+i+1, sticky='W', pady=4)
-            tkinter.Button(t, text=grid.objects[i], command=lambda i=i: game.shift_resources(grid, self, index, i, vars)).grid(row = rows+i+1, column=0, sticky='W', pady=4)
+            tkinter.Button(self.popup, text=grid.objects[i], command=lambda i=i: game.shift_resources(grid, self, index, i, vars)).grid(row = rows+i+1, column=0, sticky='W', pady=4)
             rows = rows + 1
 
         ''' For boats belonging to the active player we add a radiobutton with the fuel resources. Changing the dial will change the moveable hexes.'''
@@ -312,7 +327,19 @@ class MainTK:
             self.show_resource_choices(game,grid,index,self.popup,assignment,button1,button2)
 
         self.master.wait_window(self.popup)  # Create a popup window and wait for it to close
-        self.enable_canvas = True # Release the canvas
+
+    def remove_object(self,index):
+        ''' Removes the object marker at hex index '''
+        self.board.delete(self.objects_shape[index])
+        self.board.delete(self.objects_text[index])
+        self.objects_shape[index] = [None]
+        self.objects_text[index] = [None]
+
+    def remove_selected_items(self):
+        ''' Removes all highlighted hexes '''
+        for i in self.sel_items:
+            self.board.delete(i)
+        self.sel_items = []
 
     def show_assignment(self, game, grid, index, target_canvas, assignment, vars):
         '''Creates a description of the assignment card object in the target_canvas'''
@@ -432,8 +459,8 @@ class MainTK:
 
     def show_pawn_options(self,grid,game,index):
         '''Display the dig and move options in the hex'''
-        # Only show options if pawn has at least 1 move left
-        if getattr(game,grid.objects[index]).moves > 0:
+        # Only show options if pawn has at least 1 move left and if the resource stack for the occupied landscape type still has cards
+        if getattr(game,grid.objects[index]).moves > 0 and grid.get_landscape_stack_size_by_index(game,index) > 0:
             x_pix = self.x_pix[index]
             y_pix = self.y_pix[index]
 

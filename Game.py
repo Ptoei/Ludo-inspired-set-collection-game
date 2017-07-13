@@ -2,9 +2,11 @@ import Pawn as pawn             # My pawn class for the land pawns, boats and ho
 from Cards import *             # My cards class for managing drawpiles of land tiles and resource cards
 import numpy                    # The numpy package for connectivity matrix manipulation and solving the linear resource requirement equations.
 from random import shuffle      # The randomize function for shuffling the player order
+import os                       # Needed for deleting generated config files when the program is closed
 
 class Game:
     def __init__(self,config,grid,visualiser):
+        self.config = config                                                            # Add the config structure to the game object
         self.n_players = config.getint('Game', 'n_players')                             # Retrieve the number of players
         self.player_colors = ['red','blue','green','yellow','orange','pink','purple']   # Assign colors to players
         self.player_order = ['']*self.n_players                                         # Inititalize the list which will store the player order
@@ -20,7 +22,6 @@ class Game:
             new_player = lambda: 0 # Make empty struct
             new_player.name = 'Player ' + str(i)
             new_player.label = 'player' + str(i)
-            new_player.pawns = [None]*5
             new_player.color = self.player_colors[i]
             new_player.points = 0
 
@@ -46,6 +47,8 @@ class Game:
                     occupied by the init item, which will cause an error when placing the pawn) and place the pawn.'''
                     pawn_counter = pawn_counter + 1
                     new_pawn = pawn.Pawn(new_player.label, new_player.label + 'team' + str(pawn_counter), new_player.color,'land')
+                    new_pawn.set_moves_per_turn(self.config.getint('Game','pawn_moves'))
+                    new_pawn.reset_moves()
                     setattr(self, new_pawn.label, new_pawn)
                     grid.objects[index] = ''
                     grid.place_object(visualiser, new_pawn, index)
@@ -55,6 +58,9 @@ class Game:
                     occupied by the init item, which will cause an error when placing the pawn) and place the pawn.'''
                     boat_counter = boat_counter + 1
                     new_boat = pawn.Boat(new_player.label, new_player.label + 'boat' + str(boat_counter), new_player.color, 'water', 6)
+                    new_boat.set_moves_per_turn(self.config.getint('Game','boat_moves'))
+                    new_boat.set_ring(self.config.getint('Game','boat_ring'))
+                    new_boat.reset_moves()
                     setattr(self,new_boat.label, new_boat)
                     grid.objects[index] = ''
                     grid.place_object(visualiser, new_boat, index)
@@ -80,10 +86,10 @@ class Game:
 
         ''' Determine the resource requirement for the assignments'''
         req = self.get_required_resources()                         # Get the total resource requirement for all assignments
-        req_corr = self.adjust_resources(req,config)                # Apply multipliers and offsets to requirements to get the number of resources needed in the game.
-        [cards,value_matrix] = self.get_resource_matrix(config)     # Retrieve resource count of each resource card type except the collectibles.
+        req_corr = self.adjust_resources(req)                # Apply multipliers and offsets to requirements to get the number of resources needed in the game.
+        [cards,value_matrix] = self.get_resource_matrix()     # Retrieve resource count of each resource card type except the collectibles.
         res_count = self.calculate_resources(req_corr,value_matrix) # Calculate the number of each resource card to be added to the game (excluding specials)
-        self.gen_res_conf(res_count,cards,config)                   # Creaate an ini temp file for each landscape type
+        self.gen_res_conf(res_count,cards)                   # Creaate an ini temp file for each landscape type
 
         ''' Create the resource draw stacks for each terrain type'''
         self.swamp_drawpile = DrawPile(config.get('Game','swamp_resources'),'swamp_drawpile')
@@ -109,11 +115,11 @@ class Game:
                     else:
                         visualiser.draw_object(i,this_object)             # Re-draw the pawn unhighlighted
 
-    def adjust_resources(self,req,config):
+    def adjust_resources(self,req):
         ''' Applies the intercepts and slopes specified in the config files the resource requirements. Resource order is as always ewsmf'''
         ''' Retrieve the modification parameters from config and put them in arrays.'''
-        slope = numpy.array([int(config.get('Game','earth_multiplyer')), int(config.get('Game','wood_multiplyer')), int(config.get('Game','stone_multiplyer')), int(config.get('Game','metal_multiplyer')), int(config.get('Game','fuel_multiplyer'))])
-        offset = numpy.multiply(self.n_players,numpy.array([int(config.get('Game','earth_offset')), int(config.get('Game','wood_offset')), int(config.get('Game','stone_offset')), int(config.get('Game','metal_offset')), int(config.get('Game','fuel_offset'))]))
+        slope = numpy.array([int(self.config.get('Game','earth_multiplyer')), int(self.config.get('Game','wood_multiplyer')), int(self.config.get('Game','stone_multiplyer')), int(self.config.get('Game','metal_multiplyer')), int(self.config.get('Game','fuel_multiplyer'))])
+        offset = numpy.multiply(self.n_players,numpy.array([int(self.config.get('Game','earth_offset')), int(self.config.get('Game','wood_offset')), int(self.config.get('Game','stone_offset')), int(self.config.get('Game','metal_offset')), int(self.config.get('Game','fuel_offset'))]))
         slope.shape = (5, 1)
         offset.shape = (5, 1)
 
@@ -318,7 +324,7 @@ class Game:
         else:
             return False
 
-    def gen_res_conf(self,res_count,cards,config):
+    def gen_res_conf(self,res_count,cards):
         ''' Generates the resource config files of each landscape type. 
         Each landscape has it's own associated resource as follows: 
         Sand: earth, forest: wood, meadow: stone, rock: metal, swamp: fuel.
@@ -337,7 +343,7 @@ class Game:
 
         for i in terrains:                                                                          # Loop over terrain types
             this_config = configparser.ConfigParser()                                               # Initialize a new config structure
-            this_config.read([config.get('Game', 'resources'), config.get('Game', 'specials')])     # Load all resource tiles
+            this_config.read([self.config.get('Game', 'resources'), self.config.get('Game', 'specials')])     # Load all resource tiles
             setattr(terr,i+'_conf',this_config)                                                     # Add the config for this terrain to the terr object. NB: all five configs are the same for now
 
         print('Creating landscape drawpiles...')
@@ -378,7 +384,7 @@ class Game:
         ''' Distribute the collectibles/specials'''
 
         ''' Retrieve specials only and shuffle'''
-        temp_cards = DrawPile(config.get('Game', 'specials'),'temp')
+        temp_cards = DrawPile(self.config.get('Game', 'specials'),'temp')
 
         ''' Counters for the number of each special type already assigned'''
         for i in resources:
@@ -406,15 +412,15 @@ class Game:
             setattr(terr,this_res[0] + '_counter',getattr(terr,this_res[0] + '_counter')+1) # Increase the counter of the special type
 
         ''' Write the five config files'''
-        with open(config.get('Game', 'sand_resources'), 'w') as configfile:
+        with open(self.config.get('Game', 'sand_resources'), 'w') as configfile:
             terr.sand_conf.write(configfile)
-        with open(config.get('Game', 'forest_resources'), 'w') as configfile:
+        with open(self.config.get('Game', 'forest_resources'), 'w') as configfile:
             terr.forest_conf.write(configfile)
-        with open(config.get('Game', 'meadow_resources'), 'w') as configfile:
+        with open(self.config.get('Game', 'meadow_resources'), 'w') as configfile:
             terr.meadow_conf.write(configfile)
-        with open(config.get('Game', 'rock_resources'), 'w') as configfile:
+        with open(self.config.get('Game', 'rock_resources'), 'w') as configfile:
             terr.rock_conf.write(configfile)
-        with open(config.get('Game', 'swamp_resources'), 'w') as configfile:
+        with open(self.config.get('Game', 'swamp_resources'), 'w') as configfile:
             terr.swamp_conf.write(configfile)
 
     def get_current_player(self):
@@ -441,10 +447,10 @@ class Game:
         print('Total resource requirement (ewsmf) =  ' + str(req[0]) + ' ' + str(req[1]) + ' ' + str(req[2]) + ' ' + str(req[3]) + ' ' + str(req[4]))
         return req
 
-    def get_resource_matrix(self,config):
+    def get_resource_matrix(self):
         ''' Constructs a list of card names and the matrix with the number of each resource in it. Resource order: ewsmf'''
         temp_cards = Stack('temp')
-        temp_cards.create_cards_from_file(config.get('Game', 'resources'))
+        temp_cards.create_cards_from_file(self.config.get('Game', 'resources'))
 
         n_cards = temp_cards.get_size() # Retrieve the number of cards in the equation
         card_names = []                 # List for storing the card names
@@ -461,6 +467,16 @@ class Game:
 
         return [card_names, numpy.transpose(res_mat)]
 
+    def quit(self,visualiser):
+        ''' Cleans up the generated config files and kills the program. '''
+
+        print('Game is unfinished so no one wins and no one loses.')
+        os.remove(self.config.get('Game', 'sand_resources'))
+        os.remove(self.config.get('Game', 'swamp_resources'))
+        os.remove(self.config.get('Game', 'rock_resources'))
+        os.remove(self.config.get('Game', 'forest_resources'))
+        os.remove(self.config.get('Game', 'meadow_resources'))
+        visualiser.kill(self.update_points(visualiser))
 
     def shift_resources(self, grid, visualiser, source_index, destination_index, checks):
         ''' Translates the list checkboxes into an index list relating to the resource stack in the source object.
@@ -488,3 +504,4 @@ class Game:
                 score_string += player.name + ': ' + str(player.points) + ' points.\n'
         print(score_string)
         visualiser.update_scores(score_string)  # Send the string with socres to the visualiser
+        return score_string

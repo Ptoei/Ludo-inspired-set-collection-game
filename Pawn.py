@@ -19,11 +19,11 @@ class Pawn:
         ''' Determine on which hex type the pawn is allowed to be. '''
         self.hex_type = 'all'
         
-        ''' Determine the number of steps the pawn can do per turn '''
-        self.moves = 2
+        ''' Default for the movement parameters of the pawn '''
+        self.moves = 1  #
         self.ring = 0
-        self.moves_per_turn = 2
-        
+        self.moves_per_turn = 1
+
     def reset_moves(self):
         self.moves = self.moves_per_turn
 
@@ -33,18 +33,21 @@ class Pawn:
         else:
             self.moves = 0
 
+    def set_moves_per_turn(self,n):
+        self.moves_per_turn = n
+
+    def set_ring(self,n):
+        self.ring = n
+
 class Boat(Pawn):
     def __init__(self,owner,label,color,terrain,slots):
         print('Creating new boat ' + label + ' for player ' + owner)
         super().__init__(owner,label,color,terrain)
-        #self.owner = owner
-        #self.label = label
-        #self.color = color
         self.resource_slots = slots
         self.resources = cards.SizedStack('resources',6)
-        self.moves = 0
-        self.moves_per_turn = 3
-        self.ring = 2
+        #self.moves = 0
+        #self.moves_per_turn = 3
+        #self.ring = 2
         self.occupying_pawn_label = ''
         self.selected_fuel = -1                         # Default value indicating that the team will be rowing, no fuel will be burned
         self.can_steal = True                           # Flag to administrer whether a boat has stolen someting from another boat in this turn.

@@ -122,8 +122,8 @@ class Grid:
             ''' Do nothing'''
             print('Nothing here to do on hex ' + str(index))
 
-        elif self.selected == index and self.dig and 'team' in self.objects[index]:
-            ''' If a pawn is selected and the clicked index is the selected index, check whether the "dig" option was clicked.'''
+        elif self.selected == index and self.dig and 'team' in self.objects[index] and self.get_landscape_stack_size_by_index(game,index) > 0:
+            ''' If a pawn is selected and the clicked index is the selected index and the drawpile for the landscape is not empty, check whether the "dig" option was clicked.'''
             print('Digging...')
             '''The drawpile of the tile type gives a resource to the stash of the activeplayer'''
             getattr(game,self.tiles[index]+'_drawpile').give_card(getattr(game,game.player_order[game.player_index] + 'harbour').resources) # Get a card from the appropriate stack and move it to the player's harbour
@@ -235,6 +235,10 @@ class Grid:
 
         # Return indices to the columns which contain a number for any of the rows in Index_list, excluding the hexes in index_list themselves
         return numpy.setdiff1d(numpy.where(connections[index_list,:].sum(0)>0), index_list)
+
+    def get_landscape_stack_size_by_index(self,game,index):
+        ''' Returns the number of resources still available in the stack of the landscape of hex index.'''
+        return getattr(game,self.tiles[index]+'_drawpile').get_size()
 
     def get_reachable_boats(self,game,index):
         ''' Returns a list of indices for hexes containing a boardable boar for a pawn located at index.'''
