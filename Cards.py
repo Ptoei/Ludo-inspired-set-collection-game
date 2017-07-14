@@ -24,6 +24,7 @@ class Stack:
             for (key,value) in config.items(this_card):      # Loop over the properties of the card
                 setattr(temp,key,value)                      # Add the property to the temp card
             self.stack.extend(itertools.repeat(temp, copies))# Add the specified number of copies of the card in temp to the stack
+            self.log_stack_size()
 
     def create_dummy(self):
         # Creates an empty dummy card
@@ -39,6 +40,8 @@ class Stack:
             if card_back.name != 'empty':  # If the target stack rejected the card, we put it back where it was.
                 self.stack.append(card_back)
                 print('Stash ' + target_stack.stack_name + ' rejected the card.')
+            else:
+                self.log_stack_size()
         except IndexError:
             print('Stash ' + self.stack_name + ' is empty, failed to give card to ' + target_stack.stack_name)
             return self.create_dummy()
@@ -51,6 +54,8 @@ class Stack:
             if card_back.name != 'empty':   # If the target stack rejected the card, we put it back where it was.
                 self.stack.insert(index,card_back)
                 print('Stash ' + target_stack.stack_name + ' rejected the card.')
+            else:
+                self.log_stack_size()
         except IndexError:
             print('Stash ' + self.stack_name + ' is empty, failed to give card to ' + target_stack.stack_name)
             return self.create_dummy()
@@ -65,7 +70,11 @@ class Stack:
             print('Stash ' + self.stack_name + ' failed to take  a card from stash ' + target_stack.stack_name + ' since it is empty')
         else:
             print('Stash ' + self.stack_name + ' takes  a card from stash ' + target_stack.stack_name)
+            self.log_stack_size()
             self.stack.append(taken_card)
+
+    def log_stack_size(self):
+        print('Stack ' + self.stack_name + ' has ' + str(self.get_size()) + ' cards.')
 
     def receive_card(self,card_in):
         # Passively receive a card from another stack
@@ -74,6 +83,7 @@ class Stack:
         else:
             self.stack.append(card_in)
             print('Stash ' + self.stack_name + ' gains a card')
+            self.log_stack_size()
 
         return self.create_dummy() # Return a dummy. Needed for consistency with the sized stack, which can return the passed card if the stack is full.
 
@@ -82,6 +92,7 @@ class Stack:
         try:
             cardOut = self.stack.pop()
             print('Stash ' + self.stack_name + ' loses a card')
+            self.log_stack_size()
             return cardOut
         except IndexError:  # Stack is empty
             print('Stash ' + self.stack_name + ' is empty!')

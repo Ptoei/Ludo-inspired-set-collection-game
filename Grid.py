@@ -345,7 +345,7 @@ class Grid:
         Otherwise the tile type specified in the board file is copied.'''
         import csv
         with open(file) as f:
-            reader = csv.reader(f,delimiter=';')
+            reader = csv.reader(f,delimiter=',')
             next(reader,'none') # skip the header
             for row, index in zip(reader,range(0,self.n_hexes)):
                 if row[1] == 'random': # fully randomized tiles, including water
@@ -362,7 +362,6 @@ class Grid:
                 initialization of the Game class.'''
                 if row[2]:
                     self.objects[index] = 'init_' + row[3] + '_' + row[2]
-
         self.set_land_connectivity()
         self.set_water_connectivity()
 

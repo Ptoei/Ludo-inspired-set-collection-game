@@ -38,7 +38,7 @@ class MainTK:
         self.grid.load_map(config.get('Game','board'),config.get('Grid', 'tile_file'))          # Load map from file
 
         self.tile_color = self.assign_tile_colors(config)   # Assign colors depending on the terrain type.
-        self.visualise_grid()                               # Draw the map.
+        self.visualise_grid(config.get('Debug','show_index'))                               # Draw the map.
 
         self.game = Game.Game(config,self.grid,self)        # Initialize the game manager
 
@@ -51,20 +51,20 @@ class MainTK:
         self.quit_button.grid(column=2,row=0)
 
         ''' Add score indicators for the players. '''
-        labref = tkinter.Label(self.master,text='Player points:', font=('bold')).grid(column=1, row=1, sticky='W')
+        labref = tkinter.Label(self.master,text='Player points:', font=('bold')).grid(column=1, row=1, sticky='sw')
         self.score_field = tkinter.Text(self.master,width=30,height=self.game.n_players)
-        self.score_field.grid(columnspan=2, column=1, row=2)
+        self.score_field.grid(columnspan=2, column=1, row=2, sticky='nw')
         self.game.update_points(self)       # Put info in the points field
 
         ''' Add indicators for keeping track of the resource drawpile sizes. '''
-        tkinter.Label(self.master,text='Resource cards remaining:', font=('bold')).grid(column=1, row=3, sticky='W')
+        tkinter.Label(self.master,text='Resource cards remaining:', font=('bold')).grid(column=1, row=3, sticky='sw')
         self.card_field = tkinter.Text(self.master,width=30,height=5)
-        self.card_field.grid(columnspan=2, column=1,row=4)
+        self.card_field.grid(columnspan=2, column=1, row=4, sticky = 'nw')
         self.game.update_card_counts(self)  # Put info in the resource count field
 
-        tkinter.Label(self.master,text='Messages:', font=('bold')).grid(column=1, row=5, sticky='W')
+        tkinter.Label(self.master,text='Messages:', font=('bold')).grid(column=1, row=5, sticky='sw')
         self.message_field = tkinter.Text(self.master,width=30,height=10)
-        self.message_field.grid(columnspan=2, column=1,row=6)
+        self.message_field.grid(columnspan=2, column=1, row=6, sticky='nw')
 
         self.board.bind("<Button 1>", lambda event: self.click(event))  # Mouse click event for the game map
         self.popup = []         # Iniitialize reference variable to popup windows so we can destroy them from everywhere.
@@ -229,7 +229,7 @@ class MainTK:
             self.popup.destroy()
 
         self.popup = tkinter.Toplevel(self.master)
-        msg = tkinter.Label(text='Are you sure you want to quit?')
+        msg = tkinter.Label(self.popup, text='Are you sure you want to quit?')
         yes = tkinter.Button(self.popup,text = 'Yes',command=lambda: self.game.quit(self))
         no = tkinter.Button(self.popup,text = 'No',command=lambda: self.popup.destroy())
 
@@ -305,7 +305,7 @@ class MainTK:
             tkinter.Label(self.popup, text='Move options').grid(row=0, column= 1, sticky='W')
             t = tkinter.Text(self.popup, width=30)
             t.config(wrap=tkinter.WORD)
-            t.grid(row=1, column=1, sticky='W')
+            t.grid(row=1, column=2, sticky='W')
 
             ''' Create a list of radiobuttons for all resources'''
             self.burn_resource_var = tkinter.IntVar()
@@ -346,7 +346,7 @@ class MainTK:
         tkinter.Label(target_canvas, text = 'Assignment').grid(row=0, column=1, sticky='W')
         t = tkinter.Text(target_canvas,width = 30)
         t.config(wrap=tkinter.WORD)
-        t.grid(row=1, column= 1, sticky='W')
+        t.grid(row=1, column= 2, sticky='W')
         t.insert('end', assignment.name + ': ')
         t.insert('end', assignment.description + '\n')
         t.insert('end', 'Stage one description: ' + assignment.tier1_desc + ' After you finish stage one you can gain points from stage 2.' + '\n')
@@ -382,7 +382,7 @@ class MainTK:
         tkinter.Label(target_canvas, text = 'Choose resources for assignment').grid(row=0, column=2, sticky='W')
         t = tkinter.Text(target_canvas,width = 30)
         t.config(wrap=tkinter.WORD)
-        t.grid(row=1, column= 2, sticky='W')
+        t.grid(row=1, column= 3, sticky='W')
 
         this_object = getattr(game,grid.objects[index]) # Retrieve the object located on hex index
 
@@ -498,8 +498,15 @@ class MainTK:
         self.score_field.insert('end',string)
 
 
-    def visualise_grid(self):
+    def visualise_grid(self,show_index):
+        ''' Draws the playing board. If show_index is set to "yes", the hex numbers are printed.'''
+        if show_index == 'yes':
+            print_index = True
+        else:
+            print_index = False
+
         for i in range(0,self.grid.n_hexes):
             self.show_inactive_hex(i)
-            #self.board.create_text(self.x_pix[i],self.y_pix[i],text=str(i))
+            if print_index:
+                self.board.create_text(self.x_pix[i],self.y_pix[i],text=str(i))
 
