@@ -3,12 +3,16 @@ from Cards import *             # My cards class for managing drawpiles of land 
 import numpy                    # The numpy package for connectivity matrix manipulation and solving the linear resource requirement equations.
 from random import shuffle      # The randomize function for shuffling the player order
 import os                       # Needed for deleting generated config files when the program is closed
+import configparser
+import math
 
 class Game:
     def __init__(self,config,grid,visualiser):
+        self.grid = grid                                                                # Set up a reference to the grid class
+        self.visualiser = visualiser                                                    # Set up a reference tot visualiser class
         self.config = config                                                            # Add the config structure to the game object
         self.n_players = config.getint('Game', 'n_players')                             # Retrieve the number of players
-        self.player_colors = ['red','blue','green','yellow','orange','pink','purple']   # Assign colors to players
+        self.player_colors = ['red','blue','green','orange','pink','purple']   # Assign colors to players
         self.player_order = ['']*self.n_players                                         # Inititalize the list which will store the player order
 
         '''Retrieve the player assignments and shuffle them.'''
@@ -40,7 +44,7 @@ class Game:
                     new_harbour = pawn.Harbour(new_player.label, new_player.label + 'harbour', new_player.color,'land')
                     setattr(self, new_harbour.label, new_harbour)
                     grid.objects[index] = ''
-                    grid.place_object(visualiser, new_harbour, index)
+                    grid.place_object(new_harbour, index)
 
                 elif 'pawn' in grid.objects[index]:
                     ''' Increase pawn number, create pawn, add it to the player, free up the grid position (it is 
@@ -51,7 +55,7 @@ class Game:
                     new_pawn.reset_moves()
                     setattr(self, new_pawn.label, new_pawn)
                     grid.objects[index] = ''
-                    grid.place_object(visualiser, new_pawn, index)
+                    grid.place_object(new_pawn, index)
 
                 elif 'boat' in grid.objects[index]:
                     ''' Increase boat number, create boat, add it to the player, free up the grid position (it is 
@@ -63,13 +67,13 @@ class Game:
                     new_boat.reset_moves()
                     setattr(self,new_boat.label, new_boat)
                     grid.objects[index] = ''
-                    grid.place_object(visualiser, new_boat, index)
+                    grid.place_object(new_boat, index)
 
                 elif 'home' in grid.objects[index]:
                     new_home = pawn.Home(new_player.label, new_player.label + 'home', new_player.color,'home')
                     setattr(self, new_home.label, new_home)
                     grid.objects[index] = ''
-                    grid.place_object(visualiser, new_home, index)
+                    grid.place_object(new_home, index)
 
                 else:
                     print('Unknown object ' + grid.objects[index] + ' during init of player ' + new_player.name)
@@ -82,7 +86,7 @@ class Game:
         ''' Randomize the player order '''
         shuffle(self.player_order)
         self.turn = 1           # Keep track of the turn
-        self.activate_player(0,visualiser,grid)
+        self.activate_player(0)
 
         ''' Determine the resource requirement for the assignments'''
         req = self.get_required_resources()                         # Get the total resource requirement for all assignments
@@ -98,22 +102,23 @@ class Game:
         self.meadow_drawpile = DrawPile(config.get('Game','meadow_resources'),'meadow_drawpile')
         self.sand_drawpile = DrawPile(config.get('Game','sand_resources'),'sand_drawpile')
 
-    def activate_player(self,index,visualiser,grid):
-        print('Activating player ' + self.player_order[index])
+    def activate_player(self,index):
+        self.visualiser.message('Activating player ' + self.player_order[index])
         self.player_index = index
         self.current_player = self.player_order[self.player_index]
+        self.update_points()
 
         '''Highlight the player's objects'''
-        for i in range(grid.n_hexes):
-            if grid.objects[i]:
-                if getattr(self,grid.objects[i]).owner == self.player_order[index]:
-                    visualiser.remove_object(i)                                   # Remove the pawn
-                    this_object = getattr(self,grid.objects[i])                   # Retrieve a copy of the pawn
-                    this_object.reset_moves()                                     # Reset the moves
+        for i in range(self.grid.n_hexes):
+            if self.grid.objects[i]:
+                if getattr(self,self.grid.objects[i]).owner == self.player_order[index]:
+                    self.visualiser.remove_object(i)                                   # Remove the pawn
+                    this_object = getattr(self,self.grid.objects[i])                   # Retrieve a copy of the pawn
+                    this_object.reset_moves()                                          # Reset the moves
                     if this_object.moves > 0:
-                        visualiser.draw_object(i,this_object,'highlight')             # Re-draw the pawn highlighted
+                        self.visualiser.draw_object(i,this_object,'highlight')             # Re-draw the pawn highlighted
                     else:
-                        visualiser.draw_object(i,this_object)             # Re-draw the pawn unhighlighted
+                        self.visualiser.draw_object(i,this_object)             # Re-draw the pawn unhighlighted
 
     def adjust_resources(self,req):
         ''' Applies the intercepts and slopes specified in the config files the resource requirements. Resource order is as always ewsmf'''
@@ -137,18 +142,18 @@ class Game:
         return req_adj
 
 
-    def boat_select_fuel(self, grid, visualiser, index, resource_index):
+    def boat_select_fuel(self, index, resource_index):
         '''Selects a fuel card to use for moving, updates the move parameter and updates the visualisation'''
-        visualiser.popup.destroy()                              # Close the boat's resource popup
-        this_object = getattr(self, grid.objects[index])        # Retrieve a copy of the boat
+        self.visualiser.popup.destroy()                              # Close the boat's resource popup
+        this_object = getattr(self, self.grid.objects[index])        # Retrieve a copy of the boat
         if resource_index == -1:
             this_object.deselect_fuel()                         # Deselect the fuel card if the index is -1 ("row" in the boat dialog)
-            grid.deselect_object(visualiser, self)              # Remove the board indicators for the boat
-            grid.select_object(visualiser,self,index)           # Update the visualisation to the new moves
+            self.grid.deselect_object(self)              # Remove the board indicators for the boat
+            self.grid.select_object(index)           # Update the visualisation to the new moves
         else:
             this_object.select_fuel(resource_index)             # Select the fuel resource
-            grid.deselect_object(visualiser, self)              # Remove the board indicators for the boat
-            grid.select_object(visualiser,self,index)           # Update the visualisation to the new moves
+            self.grid.deselect_object()              # Remove the board indicators for the boat
+            self.grid.select_object(index)           # Update the visualisation to the new moves
 
     def calculate_resources(self,req,value_matrix):
         ''' Calculate the number of each resource card needed tot satisfy the required number of each resource type.'''
@@ -157,16 +162,16 @@ class Game:
 
         ''' Report on the resulting resource counts'''
         res_total = numpy.inner(value_matrix,numpy.transpose(rounded))    # Count the resource totals per type. NB this does not include the specials yet
-        print('Generated resources (excluding specials): ')
-        print('Earth required: ' + str(req[0]) + ', achieved: ' + str(res_total[0]))
-        print('Wood required: ' + str(req[1]) + ', achieved: ' + str(res_total[1]))
-        print('Stone required: ' + str(req[2]) + ', achieved: ' + str(res_total[2]))
-        print('Metal required: ' + str(req[3]) + ', achieved: ' + str(res_total[3]))
-        print('Fuel required: ' + str(req[4]) + ', achieved: ' + str(res_total[4]))
+        self.visualiser.log('Generated resources (excluding specials): ')
+        self.visualiser.log('Earth required: ' + str(req[0]) + ', achieved: ' + str(res_total[0]))
+        self.visualiser.log('Wood required: ' + str(req[1]) + ', achieved: ' + str(res_total[1]))
+        self.visualiser.log('Stone required: ' + str(req[2]) + ', achieved: ' + str(res_total[2]))
+        self.visualiser.log('Metal required: ' + str(req[3]) + ', achieved: ' + str(res_total[3]))
+        self.visualiser.log('Fuel required: ' + str(req[4]) + ', achieved: ' + str(res_total[4]))
 
         return rounded
 
-    def check_assignment(self, grid, index, vars, assignment, button1, button2):
+    def check_assignment(self, index, vars, assignment, button1, button2):
         ''' Checks whether selected resources fulfill the tier1 or tier2 assignments. '''
         ''' Because this function is bound to the checkbutton array which is used for all objects which contain resources,'''
         ''' often there will be no assignment or buttons. Check whether assignment, button1 and 2 are a value. If not, break. '''
@@ -174,7 +179,7 @@ class Game:
             return
 
         ''' Using the grid and hex index, retrieve the resources in the stack of the object located on the selected tile. Add up the selected resources.'''
-        res = getattr(self, grid.objects[index]).resources.stack # Get direct reference to the resource stack
+        res = getattr(self, self.grid.objects[index]).resources.stack # Get direct reference to the resource stack
         temp = lambda: 0
         temp.earth = 0   # Set the resource counters
         temp.wood = 0
@@ -205,40 +210,41 @@ class Game:
         else:
             button2.config(state='disabled')
 
-    def deactivate_player(self,index,visualiser,grid):
+    def deactivate_player(self,index):
         ''' Update the player's point count and de-highlight the player's pawns in case not all were used. '''
-        print('Deactivating player ' + self.player_order[index])
-        self.update_points(visualiser)
-        grid.deselect_object(visualiser, self)
-        for i in range(grid.n_hexes):
-            if grid.objects[i]:
-                if getattr(self,grid.objects[i]).owner == self.player_order[index]:
-                    visualiser.remove_object(i)                                 # Remove the object
-                    visualiser.draw_object(i,getattr(self,grid.objects[i]))     # Re-draw the object as unselected
+        self.visualiser.log('Deactivating player ' + self.player_order[index])
+        self.visualiser.message(self.player_order[index] + ' ended her/his turn.')
+        self.update_points()
+        self.grid.deselect_object()
+        for i in range(self.grid.n_hexes):
+            if self.grid.objects[i]:
+                if getattr(self,self.grid.objects[i]).owner == self.player_order[index]:
+                    self.visualiser.remove_object(i)                                 # Remove the object
+                    self.visualiser.draw_object(i,getattr(self,self.grid.objects[i]))     # Re-draw the object as unselected
     
-    def end_player_turn(self,visualiser,grid):
+    def end_player_turn(self):
         '''Ends the player's turn by activating the next player. If the last player in the sequence ends his turn, we check if the game is over. '''
-        self.deactivate_player(self.player_index,visualiser,grid)
+        self.deactivate_player(self.player_index)
         if self.game_over():                                            # Check whether the game is over
-            print('Game over!')
+            self.visualiser.log('Game over!')
         elif self.player_index < self.n_players-1:                      # Go to next player in sequence if player is not the last player
             '''Activate next player'''
-            self.activate_player(self.player_index+1,visualiser,grid)
+            self.activate_player(self.player_index+1)
         else:                                                           # If current player is last player in sequence, start from player 1
             '''Activate player 1'''
             self.current_player = self.player_order[0]
             self.turn = self.turn+1
             self.player_index = 0
-            self.activate_player(0,visualiser,grid)
-            print('New turn (' + str(self.turn) + '), activating ' + self.current_player)
+            self.activate_player(0)
+            self.visualiser.log('New turn (' + str(self.turn) + '), activating ' + self.current_player)
 
-    def fulfill_tier1(self, grid, index, vars, assignment, window):
+    def fulfill_tier1(self, index, vars, assignment, window):
         ''' Fulfills the requirement of the tier1 assignment by removing the appropriate resources. The selected resources
         as passed in the vars argumment fulfill the requirements as this was already checked before enabling the fulfill button. '''
 
-        print('Attempting to fulfull tier 1 assigment...')
+        self.visualiser.log('Attempting to fulfull tier 1 assigment...')
 
-        res = getattr(self, grid.objects[index]).resources # Get direct reference to the resource stack
+        res = getattr(self, self.grid.objects[index]).resources # Get direct reference to the resource stack
         counter = lambda: 0
         counter.earth = int(assignment.tier1_req_earth)   # Set the resource counters
         counter.wood = int(assignment.tier1_req_wood)
@@ -262,7 +268,7 @@ class Game:
                     ''' Check if the the assignment requirements are fulfulled. If so, we're done here.'''
                     if counter.earth <=0 and counter.wood <= 0 and counter.stone <= 0 and counter.metal <= 0 and counter.fuel <= 0:
                         assignment.tier1_fulfilled = '1'
-                        print('Tier 1 assignment fulfulled')
+                        self.visualiser.log('Tier 1 assignment fulfulled')
                         break
 
             i -=1 # Decrease the counter for the next iteration
@@ -271,19 +277,19 @@ class Game:
         resources back to the home stack. This should never happen since the fulfull button is only enabled after 
         checking whether the selection fulfulls the assignment. '''
         if assignment.tier1_fulfilled == '0':
-            print('Tier 1 assignment not fulfilled, returning resources to home stack.')
+            self.visualiser.log('Tier 1 assignment not fulfilled, returning resources to home stack.')
             while len(assignment.tier1_stack.stack) > 0:
                 assignment.tier1_stack.give_card(res)
 
         window.destroy() # Close the resource window, it is not up-to-date anymore and pressing the fulfill button again would cause problems.
 
-    def fulfill_tier2(self, grid, index, vars, assignment, window, visualiser):
+    def fulfill_tier2(self, index, vars, assignment, window):
         ''' Fulfills the requirement of the tier2 assignment by removing the appropriate resources. The selected resources
         as passed in the vars argumment fulfill the requirements as this was already checked before enabling the fulfill button. '''
 
-        print('Attempting to fulfull tier 2 assigment...')
+        self.visualiser.log('Attempting to fulfull tier 2 assigment...')
 
-        res = getattr(self, grid.objects[index]).resources # Get direct reference to the resource stack
+        res = getattr(self, self.grid.objects[index]).resources # Get direct reference to the resource stack
         ''' Loop over the selected resources and remove them from the stack if it is the right type of special resource.
         These resources are transferred to the assignment tier2 stack. '''
         i = res.get_size() -1 # We will loop backwards, that way we don't get indexing problems when we pop a resource.
@@ -299,7 +305,7 @@ class Game:
 
             i -=1 # Decrease the counter for the next iteration
 
-        self.update_points(visualiser)   # Update the player scorers
+        self.update_points()   # Update the player scorers
         window.destroy()                                # Close the resource window, it is not up-to-date anymore. Pressing the button again causes problems.
 
     def game_over(self):
@@ -312,14 +318,15 @@ class Game:
                 if getattr(self, pile+'_drawpile').get_size() == 0:
                     n_empty_stacks += 1
             if n_empty_stacks >= 2:
-                print('Two or more resource stacks are empty. Each player gets one more turn.')
+                self.visualiser.log('Two or more resource stacks are empty. Each player gets one more turn.')
                 self.end_cycle = True                   # If two or more drawpiles are empty, the end of game cycle starts.
                 self.turns_till_end = self.n_players    # Each player gets one more turn till game end
+                self.visualiser.message(str(n_empty_stacks) + ' landscapes are empty. Each player gets one more turn.')
         else:                                           # end_cycle is true, so we're in the final stage.
             self.turns_till_end -= 1                    # The the end-of-game phase was triggered before, turns_till_end will be a number >0. Every turn the counter gets lowered.
 
         if self.turns_till_end == 0:                    # The the end-of-game counter reaches 0, the game is over.
-            print('Game over')
+            self.visualiser.message('Game over')
             return True
         else:
             return False
@@ -330,10 +337,6 @@ class Game:
         Sand: earth, forest: wood, meadow: stone, rock: metal, swamp: fuel.
         Each terrain type stack contains 6/10 specials of it's own resource type and 1 of each of the other four.
         Each terrain type stack contains the 3-valued cards of its own resource type, the rest is distributed evenly.'''
-
-        ''' Initialize each landscape config by making a copy of the 1-card default config.'''
-        import configparser
-        import math
 
         ''' We will put all terrain specific variables in a struct so we can use getattr to loop over terrain types.'''
         terr = lambda: 0 # Create empty object
@@ -346,14 +349,14 @@ class Game:
             this_config.read([self.config.get('Game', 'resources'), self.config.get('Game', 'specials')])     # Load all resource tiles
             setattr(terr,i+'_conf',this_config)                                                     # Add the config for this terrain to the terr object. NB: all five configs are the same for now
 
-        print('Creating landscape drawpiles...')
+        self.visualiser.log('Creating landscape drawpiles...')
         ''' Loop over the resource cards and distribute the number in res_count over the resource piles. '''
         for i in range(0,len(cards)):
             ''' Retrieve the values for the next card in the stack '''
             this_card = cards[i]                # Name of the card (equal to key in the config object)
             this_number = int(res_count[i][0])  # Number of copies of the card to distribute
 
-            print('Distributing ' + str(this_number) + ' copies of resource card ' + this_card)
+            self.visualiser.log('Distributing ' + str(this_number) + ' copies of resource card ' + this_card)
 
             ''' 1. Extract the resource values of the current card. I use the sand config here, but could be any of
             the five, since they're all identical before processing. 
@@ -364,7 +367,7 @@ class Game:
                 setattr(terr,'this_' + j, terr.sand_conf.get(this_card,j))
                 if getattr(terr,'this_' + j) == '3':
                     getattr(terr, k + '_conf').set(this_card, 'copies', str(this_number))
-                    print('    ...adding ' + str(this_number) + ' copies to ' + k)
+                    self.visualiser.log('    ...adding ' + str(this_number) + ' copies to ' + k)
                     isthree = True
                 else:
                     getattr(terr, k + '_conf').set(this_card, 'copies', str(0))
@@ -379,7 +382,7 @@ class Game:
 
                 for j,k in zip(terrains, distribute):
                     getattr(terr,j+'_conf').set(this_card, 'copies', str(k))
-                    print('    ...adding ' + str(k) + ' copies to ' + j)
+                    self.visualiser.log('    ...adding ' + str(k) + ' copies to ' + j)
 
         ''' Distribute the collectibles/specials'''
 
@@ -405,7 +408,7 @@ class Game:
             for k in terrains:
                 if k == this_terrain:
                     getattr(terr,k+'_conf').set(this_card.name,'copies','1')
-                    print('Assigning 1 copy of ' + this_card.name + ' to ' + k)
+                    self.visualiser.log('Assigning 1 copy of ' + this_card.name + ' to ' + k)
                 else:
                     getattr(terr,k+'_conf').set(this_card.name,'copies','0')
 
@@ -429,7 +432,7 @@ class Game:
     def get_required_resources(self):
         ''' Adds up the resource requirement of the all player assignments and applies the multiplier specified in the game confige file. '''
 
-        print('Calculating resource requirement...')
+        self.visualiser.log('Calculating resource requirement...')
         '''We put the results in a vector in the order ewsmf.'''
         req = numpy.array([0, 0, 0, 0, 0])
         req.shape = (5, 1)
@@ -437,14 +440,14 @@ class Game:
         ''' Loop over the players and add up the resource requirements. We put the results in a vector in the order ewsmf.'''
         for player in range(0,self.n_players):
             ass =  getattr(self,'player' + str(player+1)).assignment
-            print('player' + str(player+1) + ' assignment requires (ewsmf) = ' + ass.tier1_req_earth + ' ' + ass.tier1_req_wood + ' ' + ass.tier1_req_stone + ' ' + ass.tier1_req_metal + ' ' + ass.tier1_req_fuel)
+            self.visualiser.log('player' + str(player+1) + ' assignment requires (ewsmf) = ' + ass.tier1_req_earth + ' ' + ass.tier1_req_wood + ' ' + ass.tier1_req_stone + ' ' + ass.tier1_req_metal + ' ' + ass.tier1_req_fuel)
             req[0] +=  int(ass.tier1_req_earth)
             req[1] +=  int(ass.tier1_req_wood)
             req[2] +=  int(ass.tier1_req_stone)
             req[3] +=  int(ass.tier1_req_metal)
             req[4] +=  int(ass.tier1_req_fuel)
 
-        print('Total resource requirement (ewsmf) =  ' + str(req[0]) + ' ' + str(req[1]) + ' ' + str(req[2]) + ' ' + str(req[3]) + ' ' + str(req[4]))
+        self.visualiser.log('Total resource requirement (ewsmf) =  ' + str(req[0]) + ' ' + str(req[1]) + ' ' + str(req[2]) + ' ' + str(req[3]) + ' ' + str(req[4]))
         return req
 
     def get_resource_matrix(self):
@@ -467,41 +470,41 @@ class Game:
 
         return [card_names, numpy.transpose(res_mat)]
 
-    def quit(self,visualiser):
+    def quit(self):
         ''' Cleans up the generated config files and kills the program. '''
 
-        print('Game is unfinished so no one wins and no one loses.')
+        self.visualiser.log('Game is unfinished so no one wins and no one loses.')
         os.remove(self.config.get('Game', 'sand_resources'))
         os.remove(self.config.get('Game', 'swamp_resources'))
         os.remove(self.config.get('Game', 'rock_resources'))
         os.remove(self.config.get('Game', 'forest_resources'))
         os.remove(self.config.get('Game', 'meadow_resources'))
-        visualiser.kill(self.update_points(visualiser))
+        os.remove(self.config.get('Grid', 'tile_temp'))
+        self.visualiser.kill(self.update_points())
 
-    def shift_resources(self, grid, visualiser, source_index, destination_index, checks):
+    def shift_resources(self, source_index, destination_index, checks):
         ''' Translates the list checkboxes into an index list relating to the resource stack in the source object.
         The list and objects are then passed to game.shift_resources to move the selected resources from source to destination.'''
         select = []
         for i in reversed(range(0,len(checks))):
             if checks[i].get():
-                this_card = getattr(self, grid.objects[source_index]).resources.give_selected_card(getattr(self,grid.objects[destination_index]).resources,i)
-                visualiser.popup.destroy()
+                this_card = getattr(self, self.grid.objects[source_index]).resources.give_selected_card(getattr(self,self.grid.objects[destination_index]).resources,i)
+                self.visualiser.popup.destroy()
 
-    def update_card_counts(self,visualiser):
+    def update_card_counts(self):
         ''' Updates the visualization of the card counts. Counts are supplied in the order sand, forest, meadow, rock, swamp'''
-        visualiser.update_card_counts(self.sand_drawpile.get_size(),self.forest_drawpile.get_size(),self.meadow_drawpile.get_size(),self.rock_drawpile.get_size(),self.swamp_drawpile.get_size(),)
+        self.visualiser.update_card_counts(self.sand_drawpile.get_size(),self.forest_drawpile.get_size(),self.meadow_drawpile.get_size(),self.rock_drawpile.get_size(),self.swamp_drawpile.get_size(),)
 
-    def update_points(self,visualiser):
+    def update_points(self):
         ''' Calculates the all players point counts, stores them and updates the visualisation. '''
-
         score_string = ''
         for i in self.player_order:
             player = getattr(self,i)                                    # Retrieve a reference to the player structure
             player.points = player.assignment.tier2_stack.get_size()    # Calculate the points
             if player.points == 1:                                      # Create report strings
-                score_string += player.name + ': 1 point.\n'
+                score_string += i + ': 1 point.\n'
             else:
-                score_string += player.name + ': ' + str(player.points) + ' points.\n'
-        print(score_string)
-        visualiser.update_scores(score_string)  # Send the string with socres to the visualiser
+                score_string += i + ': ' + str(player.points) + ' points.\n'
+        self.visualiser.log(score_string)
+        self.visualiser.update_scores()  # Send the string with socres to the visualiser
         return score_string
