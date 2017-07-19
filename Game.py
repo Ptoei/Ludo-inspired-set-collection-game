@@ -148,7 +148,7 @@ class Game:
         this_object = getattr(self, self.grid.objects[index])        # Retrieve a copy of the boat
         if resource_index == -1:
             this_object.deselect_fuel()                         # Deselect the fuel card if the index is -1 ("row" in the boat dialog)
-            self.grid.deselect_object(self)              # Remove the board indicators for the boat
+            self.grid.deselect_object()              # Remove the board indicators for the boat
             self.grid.select_object(index)           # Update the visualisation to the new moves
         else:
             this_object.select_fuel(resource_index)             # Select the fuel resource
