@@ -192,9 +192,21 @@ class MainTK:
 
         self.popup.title(this_object.label )
 
-        tkinter.Label(self.popup, text = 'enemy resources').grid(row=0, sticky='W')
+        tkinter.Label(self.popup, text = 'opponent resources').grid(row=0, sticky='W')
+
+        isoccupied = ''
+        if hasattr(this_object,'occupying_pawn_label'): # Only boats have this attribute
+            if len(this_object.occupying_pawn_label) > 1:
+                isoccupied = '(pawn)'
+
+        t = tkinter.Text(self.popup, width=30, height=1)
+        t.config(wrap=tkinter.WORD)
+        t.grid(columnspan=2, row=1)
+        t.insert('end',this_object.label + isoccupied + '\n')
+
+
         ''' Create radio buttons for stealing one resource.'''
-        rows = 1 # Count the number of rows in the popup window
+        rows = 2 # Count the number of rows in the popup window
         keep_i = 0 # Dummy for counting the number of resources and updating the total nr of rows in the widget later.
         self.steal_resource_var = tkinter.IntVar()
         for i in range(rows,this_object.resources.get_size()+rows):
@@ -273,11 +285,13 @@ class MainTK:
         t = tkinter.Text(self.popup,width=30,height=1)
         t.config(wrap=tkinter.WORD)
         t.grid(columnspan=2,row=1)
-        if this_object.owner == self.game.current_player:
-           isactive = ' (active player)'
-        else:
-           isactive = ''
-        t.insert('end',this_object.label + isactive + '\n')
+
+        isoccupied = ''
+        if hasattr(this_object,'occupying_pawn_label'): # Only boats have this attribute
+            if len(this_object.occupying_pawn_label) > 1:
+                isoccupied = '(pawn)'
+
+        t.insert('end',this_object.label + '(active)' + isoccupied + '\n')
 
         ''' TODO Position the popup in the corner furthest away from the clicked hex in order to prevent overlap with reachable hexes. '''
         ''' For now I just position the window right of the board.'''
@@ -285,6 +299,33 @@ class MainTK:
         w_main = self.master.winfo_width()
         self.popup.geometry('+' + str(w_main) + '+' + str(y_main))
 
+        ''' Create buttons for shifting resources to neigboring objects if any are present. '''
+        ''' Get the indices of hexes one step removed from the active hex and find harboars, homebases and boats.'''
+        conn_1 = self.grid.get_connections([index], 'all_conn', 1)
+        dest_harbour = [x for i, x in enumerate(conn_1) if (self.game.current_player + 'harbour') in self.grid.objects[x]]
+        dest_home = [x for i, x in enumerate(conn_1) if (self.game.current_player + 'home') in self.grid.objects[x]]
+        dest_boat = [x for i, x in enumerate(conn_1) if (self.game.current_player + 'boat') in self.grid.objects[x]]
+
+        rows = 2
+        ''' For each harbour, home base and boat 1 step removed, add a button for shifting resources.'''
+        for i in dest_harbour:
+            tkinter.Button(self.popup, text=self.grid.objects[i], command=lambda i=i: self.game.shift_resources(index, i, vars)).grid(row=rows, column=0, sticky='W', pady=4)
+            rows = rows + 1
+
+        for i in dest_home:
+            tkinter.Button(self.popup, text=self.grid.objects[i], command=lambda i=i: self.game.shift_resources(index, i, vars)).grid(row=rowss, column=0, sticky='W', pady=4)
+            rows = rows + 1
+
+        for i in dest_boat:
+            # tkinter.Button(popup, text=grid.objects[i], command=print('boat'+str(i))).grid(row=rows+i+1, sticky='W', pady=4)
+            tkinter.Button(self.popup, text=self.grid.objects[i], command=lambda i=i: self.game.shift_resources(index, i, vars)).grid(row=rows,
+                                                                                               column=0, sticky='W', pady=4)
+            rows = rows + 1
+
+
+        t = tkinter.Text(self.popup,width=30,height=1)
+        t.config(wrap=tkinter.WORD)
+        t.grid(columnspan=2,row=rows)
 
         ''' Create a list of checkboxes for all resources'''
         rows = 1 # Count the number of rows in the popup window
@@ -302,27 +343,7 @@ class MainTK:
             keep_i = i
         rows = keep_i
 
-        ''' Create buttons for shifting resources to neigboring objects if any are present. '''
-        ''' Get the indices of hexes one step removed from the active hex and find harboars, homebases and boats.'''
-        conn_1 = self.grid.get_connections([index], 'all_conn', 1)
-        dest_harbour = [x for i, x in enumerate(conn_1) if (self.game.current_player + 'harbour') in self.grid.objects[x]]
-        dest_home = [x for i, x in enumerate(conn_1) if (self.game.current_player + 'home') in self.grid.objects[x]]
-        dest_boat = [x for i, x in enumerate(conn_1) if (self.game.current_player + 'boat') in self.grid.objects[x]]
 
-        rows = 3
-        ''' For each harbour, home base and boat 1 step removed, add a button for shifting resources.'''
-        for i in dest_harbour:
-            tkinter.Button(self.popup, text=self.grid.objects[i], command=lambda i=i: self.game.shift_resources(index, i, vars)).grid(row = rows+i+1, column=0, sticky='W', pady=4)
-            rows = rows + 1
-
-        for i in dest_home:
-            tkinter.Button(self.popup, text=self.grid.objects[i], command=lambda i=i: self.game.shift_resources(index, i, vars)).grid(row = rows+i+1, column=0, sticky='W', pady=4)
-            rows = rows + 1
-
-        for i in dest_boat:
-            #tkinter.Button(popup, text=grid.objects[i], command=print('boat'+str(i))).grid(row=rows+i+1, sticky='W', pady=4)
-            tkinter.Button(self.popup, text=self.grid.objects[i], command=lambda i=i: self.game.shift_resources(index, i, vars)).grid(row = rows+i+1, column=0, sticky='W', pady=4)
-            rows = rows + 1
 
         ''' For boats belonging to the active player we add a radiobutton with the fuel resources. Changing the dial will change the moveable hexes.'''
         if 'boat' in this_object.label and self.game.current_player in this_object.label and this_object.occupying_pawn_label != '':

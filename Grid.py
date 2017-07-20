@@ -141,12 +141,26 @@ class Grid(Hexgrid):
         pawns, water for boats). If the ring parameter of the object is set to 0, the whole surface within reach of 
         pawn.moves can be reached. If ring is any positive integer value, a ring of reachable hexes is generated. This 
         is the case for boats. '''
-        if pawn.moves > 0 and pawn.ring < 1:    # The all hexis within pawn.moves distance can be reached.
-            conn = self.get_connections([index],pawn.terrain + '_conn', pawn.moves)
-        elif pawn.moves > 0 and pawn.ring > 0:  # Only a ring of hexes can be reached
-            outer = self.get_connections([index],pawn.terrain + '_conn', pawn.moves)
-            inner = self.get_connections([index],pawn.terrain + '_conn', pawn.moves-pawn.ring)
-            conn = numpy.setdiff1d(outer, inner)    # The reachable ring is in the outer list but not in the inner list.
+        if pawn.moves > 0 and pawn.ring < 1:                                                    # All hexis within pawn.moves distance can be reached.
+             conn = self.get_connections([index],pawn.terrain + '_conn', pawn.moves)
+        elif pawn.moves > 0 and pawn.ring > 0:                                                  # Only a ring of hexes can be reached
+            outer = self.get_connections([index],pawn.terrain + '_conn', pawn.moves)            # Get all water tiles in range
+            inner = self.get_connections([index],pawn.terrain + '_conn', pawn.moves-pawn.ring)  # Get all water tiles in range minus 1
+            conn = numpy.setdiff1d(outer, inner)                                                # The reachable ring is in the outer list but not in the inner list.
+
+            ''' We want harbours and towns to be reachable always if they're inside movable range, even if the water/land next to it is
+            not on the reachable ring. For this, we need to add all tiles bordering any harbour/town inside the moveable
+            radius to the list. '''
+            harbours = []                       # List of tiles indices containing a town or harbour
+            ''' Find any player-owned harbour in range + 1. (Harbours bordering the outer ring are already taken care of intrinsically.) '''
+            for i in self.get_connections([index], 'all_conn', pawn.moves+1):           # Loop over the tiles in range
+                if (self.objects[i].find('harbour') != -1 or self.objects[i].find('home') != -1) and self.objects[i].find(self.game.current_player) != -1:    # Identify player-owned harbours
+                    harbours.append(i)           # Add the index to the list
+
+            next_to_town = numpy.array(self.get_connections(harbours, 'all_conn', 1))   # Find tiles one step removed from each index in the list
+            next_to_town = numpy.intersect1d(next_to_town, outer)                       # Retain indices adjacent to a town/harbour which are within moveable range with the correct landscape type.
+            conn = numpy.append(conn, next_to_town)                                     # Add the resulting tiles to conn
+
         else:
             conn = [-1]
 
@@ -168,9 +182,13 @@ class Grid(Hexgrid):
 
         # Select all land hexes within the 1-hex diameter
         land_1 = [x for i, x in enumerate(all_1) if self.tiles[x] not in ['water','home']]
-        # Select all hexes which are reachable from the nearby land hexes with moves-1 steps for the pawn on the boat
-        pawn_land = self.get_connections(land_1, 'land_conn', pawn_moves - 1)
-        all_reachable_pawn = numpy.append(pawn_land,land_1)
+        # If the pawn has more than 1 move, select all hexes which are reachable from the nearby land hexes with moves-1 steps for the pawn on the boat
+        if pawn_moves > 1:
+            pawn_land = self.get_connections(land_1, 'land_conn', pawn_moves - 1)
+            all_reachable_pawn = numpy.append(pawn_land,land_1)
+        else:
+            all_reachable_pawn = land_1
+
         # Remove the occupied hexes
         return [x for i, x in enumerate(all_reachable_pawn) if self.objects[x] == '']
 

@@ -39,6 +39,9 @@ class Game:
             objects_index = [dummy for dummy, x in enumerate(grid.objects) if 'init_' + new_player.label in x]
             pawn_counter = 0 # Used to number the pawns (not the other items)
             boat_counter = 0
+            new_player.pawn_list = []   # Lists with references to the player's pawns and boats.
+            new_player.boat_list = []
+
             for index in objects_index:
                 if 'harbour' in grid.objects[index]:
                     new_harbour = pawn.Harbour(new_player.label, new_player.label + 'harbour', new_player.color,'land')
@@ -54,6 +57,7 @@ class Game:
                     new_pawn.set_moves_per_turn(self.config.getint('Game','pawn_moves'))
                     new_pawn.reset_moves()
                     setattr(self, new_pawn.label, new_pawn)
+                    new_player.pawn_list.append(getattr(self,new_pawn.label))
                     grid.objects[index] = ''
                     grid.place_object(new_pawn, index)
 
@@ -66,6 +70,7 @@ class Game:
                     new_boat.set_ring(self.config.getint('Game','boat_ring'))
                     new_boat.reset_moves()
                     setattr(self,new_boat.label, new_boat)
+                    new_player.pawn_list.append(getattr(self,new_boat.label))
                     grid.objects[index] = ''
                     grid.place_object(new_boat, index)
 
@@ -108,17 +113,22 @@ class Game:
         self.current_player = self.player_order[self.player_index]
         self.update_points()
 
+        ''' Reset pawn and boat moves'''
+        for p in getattr(self,self.current_player).pawn_list:
+            p.reset_moves()
+        for b in getattr(self,self.current_player).boat_list:
+            b.reset_moves()
+
         '''Highlight the player's objects'''
         for i in range(self.grid.n_hexes):
             if self.grid.objects[i]:
                 if getattr(self,self.grid.objects[i]).owner == self.player_order[index]:
                     self.visualiser.remove_object(i)                                   # Remove the pawn
                     this_object = getattr(self,self.grid.objects[i])                   # Retrieve a copy of the pawn
-                    this_object.reset_moves()                                          # Reset the moves
                     if this_object.moves > 0:
-                        self.visualiser.draw_object(i,this_object,'highlight')             # Re-draw the pawn highlighted
+                        self.visualiser.draw_object(i,this_object,'highlight')         # Re-draw the pawn highlighted
                     else:
-                        self.visualiser.draw_object(i,this_object)             # Re-draw the pawn unhighlighted
+                        self.visualiser.draw_object(i,this_object)                     # Re-draw the pawn unhighlighted
 
     def adjust_resources(self,req):
         ''' Applies the intercepts and slopes specified in the config files the resource requirements. Resource order is as always ewsmf'''
