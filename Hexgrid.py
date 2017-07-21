@@ -12,11 +12,12 @@ class Hexgrid:
 
         self.size_y = int(2 * numpy.ceil(size_y / 2))  # The size of the board in y-direction is constrained to even numbers. This makes generating the grid easier and it really makes to difference to the game.
         self.size_x = size_x
-        self.n_hexes = size_y * size_x              # Number of tiles on the board
-        self.tiles = list([''] * self.n_hexes)      # List with labels containing the tile type for each hex.
-        self.objects = list([''] * self.n_hexes)    # List of objects (guys, boats) on the grid
-        self.selected = []                          # Index of the hex containing the currently selected pawn . Passing this index handles most game functionality.
-        self.select_reachable = numpy.array([])     # Index list of the hexes reachable for the currently selected pawn.
+        self.n_hexes = size_y * size_x                  # Number of tiles on the board
+        self.tiles = list([''] * self.n_hexes)          # List with labels containing the tile type for each hex.
+        self.objects = list([None] * self.n_hexes)      # List of objects (guys, boats) on the grid
+        self.objects_init = list([''] * self.n_hexes)   # List of names of the objects on the board during init.
+        self.selected = []                              # Index of the hex containing the currently selected pawn . Passing this index handles most game functionality.
+        self.select_reachable = numpy.array([])         # Index list of the hexes reachable for the currently selected pawn.
 
         ''' Generate the y-coordinates by repeating the y_coordinates 'size_x' times and transposing to x-first matrix orientation.
         NB, the hex centers in y direction are in reality 0.75 apart. To mame things easier, I account for this in the visualizer.'''

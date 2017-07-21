@@ -48,7 +48,7 @@ class Boat(Pawn):
         #self.moves = 0
         #self.moves_per_turn = 3
         #self.ring = 2
-        self.occupying_pawn_label = ''
+        self.occupying_pawn = None
         self.selected_fuel = -1                         # Default value indicating that the team will be rowing, no fuel will be burned
         self.can_steal = True                           # Flag to administrer whether a boat has stolen someting from another boat in this turn.
 
@@ -71,17 +71,17 @@ class Boat(Pawn):
 
     def occupy(self,pawn_object):
         ''' Moves a pawn into a boat.'''
-        if self.occupying_pawn_label == '':                     # Check whether the boat already has an occupying pawn
-            self.occupying_pawn_label = pawn_object.label       # Set the name of the ooccupying pawn
-            pawn_object.moves = 0                               # Set the pawn's moves to 0 so it can't move out again this turn
+        if not self.occupying_pawn:                     # Check whether the boat already has an occupying pawn
+            self.occupying_pawn = pawn_object           # Set the name of the ooccupying pawn
+            pawn_object.moves = 0                       # Set the pawn's moves to 0 so it can't move out again this turn
             print(pawn_object.label + ' is now manning ' + self.label)
-            return ''
+            return None
         else:
             print(self.label + ' is already occupied!')
-            return pawn_object.label
+            return pawn_object
 
     def reset_moves(self):
-        if self.occupying_pawn_label != '': # The boat can only move if there is a pawn on it
+        if self.occupying_pawn: # The boat can only move if there is a pawn on it
             self.moves = self.moves_per_turn
         else: # No pawn = no moves
             self.moves = 0
@@ -111,23 +111,11 @@ class Boat(Pawn):
             print('Target object is not an enemy ship.')
 
     def unboard(self):
-        unboarding_pawn = self.occupying_pawn_label
-        self.occupying_pawn_label = ''
-        print(self.occupying_pawn_label + ' is leaving ' + self.label)
+        unboarding_pawn = self.occupying_pawn
+        self.occupying_pawn = None
+        print(unboarding_pawn.label + ' is leaving ' + self.label)
         self.reset_moves()
         return unboarding_pawn # This is the label of the pawn, not the actual object!
-
-    #def get_max_moves(self):
-    #    max_moves = 0
-    #    for i in self.resources.stack:
-    #        if max_moves < i.fuel:
-    #            max_moves = i.fuel
-    #    return max_moves + 1
-
-    #def set_moves(self,moves):
-    #    self.moves = moves
-
-    #moves = property(get_max_moves,set_moves)
 
 class Harbour(Pawn):
     def __init__(self,owner,label,color,terrain):

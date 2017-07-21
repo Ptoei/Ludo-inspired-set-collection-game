@@ -5,64 +5,37 @@ import csv
 import configparser
 
 class Grid(Hexgrid):
-    def __init__(self,size_x,size_y, visualiser, game):
+    def __init__(self,size_x,size_y, visualiser):
         super().__init__(size_x,size_y)     # Run the hexgrid constructor
         self.visualiser = visualiser        # Set a link with the visualiser, safes a lot of parameter passing
-        self.game = game                    # Set a link with the visualiser, safes a lot of parameter passing
 
     def activate_hex(self,index):
         ''' Spaghetti which handles the events when a player clicks a hex '''
 
-        self.visualiser.remove_selected_items()
-        if self.selected == [] and self.objects[index] == '':
+        self.visualiser.remove_selected_items() # Remove all highlighted items and option icons from the board.
+
+        if self.selected == [] and not self.objects[index]:
             ''' Do nothing'''
             self.visualiser.log('Nothing here to do on hex ' + str(index))
 
-        elif self.selected == index and self.dig and 'team' in self.objects[index] and self.get_landscape_stack_size_by_index(index) > 0:
+        elif self.selected == index and self.dig and 'team' in self.objects[index].label and self.get_landscape_stack_size_by_index(index) > 0:
             ''' If a pawn is selected and the clicked index is the selected index and the drawpile for the landscape is not empty, check whether the "dig" option was clicked.'''
             self.visualiser.log('Digging...')
             '''The drawpile of the tile type gives a resource to the stash of the activeplayer'''
             getattr(self.game,self.tiles[index]+'_drawpile').give_card(getattr(self.game,self.game.player_order[self.game.player_index] + 'harbour').resources) # Get a card from the appropriate stack and move it to the player's harbour
-            getattr(self.game,self.objects[self.selected]).use_moves(1)          # Deduct one move for the pawn
+            self.objects[self.selected].use_moves(1)          # Deduct one move for the pawn
             self.deselect_object()                          # Deselect the hex
             self.game.update_card_counts()                  # Update the card counts
             self.visualiser.message(self.game.player_order[self.game.player_index] + ' gains ' + getattr(self.game,self.game.player_order[self.game.player_index] + 'harbour').resources.stack[-1].name)
 
-        elif self.selected and 'boat' in self.objects[index] and self.game.current_player in self.objects[index]:
-            ''' If a pawn is selected and the clicked index contains a boat, check whether the boat is 1. reachable and
-            2. belongs the the active player. If so, move the selected pawn into the boat. '''
-            if 'team' in self.objects[self.selected]:
-                if index in self.get_reachable_boats(self.selected):
-                    ''' Move the pawn into the boat'''
-                    self.visualiser.message(self.game.current_player + ' moves pawn ' + getattr(self.game,self.objects[self.selected]).label + ' into boat' + getattr(self.game,self.objects[index]).label)
-                    not_removed =  getattr(self.game,self.objects[index]).occupy(getattr(self.game,self.objects[self.selected]))
-                    if not_removed == '':
-                        moved_pawn = self.selected
-                        self.deselect_object()
-                        self.remove_object(moved_pawn)
-                    else:
-                        self.select_object(self.selected)
-                else:
-                    self.visualiser.log('Boat ' + getattr(self.game,self.objects[index]).label + ' too far removed from pawn ' + getattr(self.game,self.objects[self.selected]).label)
-                    self.select_object(self.selected)
-            else: # The previously selected object wasn't a pawn, so just activate the boat
-                self.deselect_object()
-                self.select_object(index)
-
-        elif 'harbour' in self.objects[index] or 'home' in self.objects[index]:
-            '''Display the resources stored by the owner of the harbour'''
-            if self.selected:
-                self.deselect_object()
-            self.select_object(index)
-
         elif self.selected and not self.objects[index]:
             ''' If a boat is selected which has a pawn, we see if the pawn can disembark. If the index hex contains an enemy ship, we try to steal from it.'''
-            if 'boat' in self.objects[self.selected]:
-                if getattr(self.game,self.objects[self.selected]).occupying_pawn_label != '':
+            if 'boat' in self.objects[self.selected].label:
+                if self.objects[self.selected].occupying_pawn:
                     if index in(self.get_reachable_land(self.selected)):  # Disembark the occupying pawn to the index hex
-                        self.place_object(getattr(self.game,getattr(self.game,self.objects[self.selected]).unboard()),index) # The boat object is retrieved, the pawn is unboarded which returns the pawn label, which is in turn used to get the pawn object
+                        self.place_object(self.objects[self.selected].unboard(),index) # The boat object is retrieved, the pawn is unboarded which returns the pawn label, which is in turn used to get the pawn object
 
-            if 'team' in self.objects[self.selected] or 'boat' in self.objects[self.selected]:
+            if 'team' in self.objects[self.selected].label or 'boat' in self.objects[self.selected].label:
                 ''' If a pawn/boat is selected and no object is in the clicked hex, we attempt to move the selected pawn. '''
                 try:
                     self.visualiser.log('Attempt to move pawn to ' + str(index))
@@ -76,13 +49,41 @@ class Grid(Hexgrid):
                     self.deselect_object()
                     self.visualiser.log('Cannot move object to hex ' + str(index))
 
+
+        elif self.selected and 'boat' in self.objects[index].label and self.game.current_player in self.objects[index].label:
+            ''' If a pawn is selected and the clicked index contains a boat, check whether the boat is 1. reachable and
+            2. belongs the the active player. If so, move the selected pawn into the boat. '''
+            if 'team' in self.objects[self.selected].label:
+                if index in self.get_reachable_boats(self.selected):
+                    ''' Move the pawn into the boat'''
+                    self.visualiser.message(self.game.current_player + ' moves pawn ' + self.objects[self.selected].label + ' into boat' + self.objects[index].label)
+                    not_removed =  self.objects[index].occupy(self.objects[self.selected])
+                    if not not_removed:
+                        moved_pawn_index = self.selected
+                        self.deselect_object()
+                        self.remove_object(moved_pawn_index)
+                    else:
+                        self.select_object(self.selected)
+                else:
+                    self.visualiser.log('Boat ' + self.objects[index].label + ' too far removed from pawn ' + self.objects[self.selected].label)
+                    self.select_object(self.selected)
+            else: # The previously selected object wasn't a pawn, so just activate the boat
+                self.deselect_object()
+                self.select_object(index)
+
+        elif 'harbour' in self.objects[index].label or 'home' in self.objects[index].label:
+            '''Display the resources stored by the owner of the harbour'''
+            if self.selected:
+                self.deselect_object()
+            self.select_object(index)
+
             '''If an object is found on the hex AND it belongs to the active player, select it. '''
         else:
-            self.visualiser.log('Activating ' + self.objects[index] + ' found on hex ' + str(index))
+            self.visualiser.log('Activating ' + self.objects[index].label + ' found on hex ' + str(index))
             ''' If an object is already selected, then deselect that before selecting the new one '''
             if self.selected:
                 self.deselect_object()
-            if getattr(self.game,self.objects[index]).owner == self.game.current_player:
+            if self.objects[index].owner == self.game.current_player:
                 self.select_object(index)
             else:
                 self.select_enemy_object(index)
@@ -90,17 +91,23 @@ class Grid(Hexgrid):
     def deselect_object(self):
         if self.selected == []: # Escape the method if nothing is selected
             return
-        this_pawn = getattr(self.game,self.objects[self.selected])
         self.visualiser.remove_object(self.selected)
         self.visualiser.remove_selected_items()
         '''If the pawn belongs to the active player and has moves left, it needs to be highliighted, '''
-        if this_pawn.owner == self.game.current_player and this_pawn.moves > 0:
-            self.visualiser.draw_object(self.selected,this_pawn,'highlight')
+        if self.objects[self.selected].owner == self.game.current_player and self.objects[self.selected].moves > 0:
+            self.visualiser.draw_object(self.selected,self.objects[self.selected],'highlight')
         else:
-            self.visualiser.draw_object(self.selected,this_pawn)
+            self.visualiser.draw_object(self.selected,self.objects[self.selected])
         ''' Clear the index of the currently selected hex '''
         self.selected = []
         self.selected_reachable = []
+
+    def get_reachable_object_indices(self, terrain, index, radius):
+        ''' Returns a list of objects which are within a certain distance, taking into account terrain type (all, land,
+        water), from index. '''
+
+        conn_1 = self.get_connections([index], terrain + '_conn', radius)
+        return  [x for i, x in enumerate(conn_1) if self.objects[x]]
 
     def get_landscape_stack_size_by_index(self,index):
         ''' Returns the number of resources still available in the stack of the landscape of hex index.'''
@@ -108,7 +115,7 @@ class Grid(Hexgrid):
 
     def get_reachable_boats(self,index):
         ''' Returns a list of indices for hexes containing a boardable boat for a pawn located at index.'''
-        pawn_moves = getattr(self.game,self.objects[index]).moves
+        pawn_moves = self.objects[index].moves
         # 1. Retrieve reachable land hexes. There needs to be one move left to hop to the ship, so I need to get the
         # reachables for moves-1.
         if pawn_moves == 0:
@@ -128,9 +135,8 @@ class Grid(Hexgrid):
             reachable_boats = []
             for i in next_to_land:
                 if self.objects[i]: # Check if there is an object on the tile
-                    obj_ref = getattr(self.game,self.objects[i]) # Retrieve the object on the tile
-                    if obj_ref.owner == self.game.current_player and 'boat' in obj_ref.label: # check if the object is a boat and if it belongs to the active player
-                        if obj_ref.occupying_pawn_label == '': # Need to put this condition separate since non-boat objects don't have this field
+                    if self.objects[i].owner == self.game.current_player and 'boat' in self.objects[i].label: # check if the object is a boat and if it belongs to the active player
+                        if not self.objects[i].occupying_pawn: # Need to put this condition separate since non-boat objects don't have this field
                             reachable_boats.append(i)
             return reachable_boats
 
@@ -154,8 +160,9 @@ class Grid(Hexgrid):
             harbours = []                       # List of tiles indices containing a town or harbour
             ''' Find any player-owned harbour in range + 1. (Harbours bordering the outer ring are already taken care of intrinsically.) '''
             for i in self.get_connections([index], 'all_conn', pawn.moves+1):           # Loop over the tiles in range
-                if (self.objects[i].find('harbour') != -1 or self.objects[i].find('home') != -1) and self.objects[i].find(self.game.current_player) != -1:    # Identify player-owned harbours
-                    harbours.append(i)           # Add the index to the list
+                if self.objects[i]:             # Is there an object?
+                    if (self.objects[i].label.find('harbour') != -1 or self.objects[i].label.find('home') != -1) and self.objects[i].owner.find(self.game.current_player) != -1:    # Identify player-owned harbours
+                        harbours.append(i)           # Add the index to the list
 
             next_to_town = numpy.array(self.get_connections(harbours, 'all_conn', 1))   # Find tiles one step removed from each index in the list
             next_to_town = numpy.intersect1d(next_to_town, outer)                       # Retain indices adjacent to a town/harbour which are within moveable range with the correct landscape type.
@@ -165,14 +172,14 @@ class Grid(Hexgrid):
             conn = [-1]
 
         ''' Identify unoccupied hexes. Occupied hexes cannot be reached. '''
-        empty = [i for i, x in enumerate(self.objects) if x == ""]
+        empty = [i for i, x in enumerate(self.objects) if not x]
 
         ''' The reachable hexes are the union of the previous two'''
         return numpy.intersect1d(conn,empty)
 
     def get_reachable_land(self, index):
         ''' Returns all reachable hexes for a pawn located on a boat. '''
-        pawn_moves = getattr(self.game,getattr(self.game,self.objects[index]).occupying_pawn_label).moves
+        pawn_moves = self.objects[index].occupying_pawn.moves
 
         if pawn_moves == 0: # If the pawn has no moves, it can't go anywhere.
             return []
@@ -203,7 +210,7 @@ class Grid(Hexgrid):
             for row, index in zip(reader, range(0, self.n_hexes)):
                 self.tiles[index] = row[1]  # The tile type is specified in row 1 the input file. Randomized tiles are handled below
                 if row[2]:                  # Row 2 contains the locations of the player objects. These will later be processed during init of Game class
-                    self.objects[index] = 'init_' + row[3] + '_' + row[2]
+                    self.objects_init[index] = 'init_' + row[3] + '_' + row[2]
 
             ''' Determine how many of each landscape tile we need for the randomized tiles. There is two types of 
             random tiles: 1. random (all tile types, including water) and 2. land (random but has to be land). '''
@@ -270,7 +277,7 @@ class Grid(Hexgrid):
         self.visualiser.log('Placing ' + object.label + ' on hex ' + str(index) + '...')
         # Check whether position x,y is occupied, if so return false.
         if not self.objects[index]:
-            self.objects[index] = object.label
+            self.objects[index] = object
             self.visualiser.draw_object(index, object)
             self.visualiser.log('    ...success')
             return True
@@ -282,24 +289,23 @@ class Grid(Hexgrid):
         if not self.objects:
             self.visualiser.log('No pawn found on hex ' + str(index))
         else:
-            object = getattr(self.game,self.objects[index]) # Retrieve the pawn so we can return it as function output
             self.visualiser.remove_object(index)
-            self.objects[index] = ''
-            return object
-            self.visualiser.log('Object removed from hex ' + str(index))
+            removed  = self.objects[index]
+            self.objects[index] = None
+            self.visualiser.log('Object ' + removed.label + ' removed from hex ' + str(index))
+            return removed
+
 
     def select_enemy_object(self,index):
         ''' shows objects belonging to enemy objects of the board.'''
-        '''Retrieve the object on hex index '''
-        this_obj = getattr(self.game,self.objects[index])
 
         ''' The rest of the procedure depends on the object type'''
-        if 'team' in this_obj.label:
+        if 'team' in self.objects[index].label:
             self.visualiser.log('No options for enemy pawns')
-        elif 'boat' in this_obj.label:
+        elif 'boat' in self.objects[index].label:
             '''Draw the highlighted pawn, draw the icons for the boat options (unboarding), display the resource popup and display the fuel burn popup. '''
             self.visualiser.enemy_resources_popup(index)
-        elif 'harbour' in this_obj.label or 'home' in this_obj.label:
+        elif 'harbour' in self.objects[index].label or 'home' in self.objects[index].label:
             ''' Draw the harbour and show the resource popup.'''
             self.visualiser.enemy_resources_popup(index)
         else:
@@ -309,9 +315,6 @@ class Grid(Hexgrid):
         '''Assigns the input index to self.selected and determines all reachable hexes for the selected object. 
         Then tells the visualiser to highlight the hex in which it is located and all reachable hexes'''
 
-        '''Retrieve the object on hex index '''
-        this_obj = getattr(self.game,self.objects[index])
-
         self.visualiser.log('Selecting pawn at hex ' + str(index))
         ''' Store  the index of the currently selected hex '''
         self.selected = index
@@ -320,7 +323,7 @@ class Grid(Hexgrid):
         ''' Store  the index of the currently selected hex '''
         self.selected = index
         ''' Determine hexes reachable by the pawn in hex index '''
-        self.select_reachable = numpy.array(self.get_reachable_hexes(index, getattr(self.game,self.objects[index])))
+        self.select_reachable = numpy.array(self.get_reachable_hexes(index, self.objects[index]))
 
         for i in self.select_reachable:
             self.visualiser.highlight_hex(i, 'pawn')
@@ -331,18 +334,18 @@ class Grid(Hexgrid):
         self.visualiser.highlight_hex(index,'reachable')
 
         ''' The rest of the procedure depends on the object type'''
-        if 'team' in this_obj.label:
+        if 'team' in self.objects[index].label:
             ''' Draw the highlighted pawn and show the pawn options (digging, boarding a boat) '''
-            self.visualiser.draw_object(index,this_obj)
+            self.visualiser.draw_object(index,self.objects[index])
             self.visualiser.show_pawn_options(index)
-        elif 'boat' in this_obj.label:
+        elif 'boat' in self.objects[index].label:
             '''Draw the highlighted pawn, draw the icons for the boat options (unboarding), display the resource popup and display the fuel burn popup. '''
-            self.visualiser.draw_object(index, this_obj)
+            self.visualiser.draw_object(index, self.objects[index])
             self.visualiser.show_boat_options(index)
             self.visualiser.player_resources_popup(index)
-        elif 'harbour' in this_obj.label or 'home' in this_obj.label:
+        elif 'harbour' in self.objects[index].label or 'home' in self.objects[index].label:
             ''' Draw the harbour and show the resource popup.'''
-            self.visualiser.draw_object(index, this_obj)
+            self.visualiser.draw_object(index, self.objects[index])
             self.visualiser.player_resources_popup(index)
         else:
             self.visualiser.log('Unknown object')

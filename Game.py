@@ -36,20 +36,20 @@ class Game:
             new_player.assignment.tier2_stack = Stack(new_player.label + '_tier2')
 
             ''' Find the player's objects in the grid.objects list and initialize them.'''
-            objects_index = [dummy for dummy, x in enumerate(grid.objects) if 'init_' + new_player.label in x]
+            objects_index = [dummy for dummy, x in enumerate(grid.objects_init) if 'init_' + new_player.label in x]
             pawn_counter = 0 # Used to number the pawns (not the other items)
             boat_counter = 0
             new_player.pawn_list = []   # Lists with references to the player's pawns and boats.
             new_player.boat_list = []
 
             for index in objects_index:
-                if 'harbour' in grid.objects[index]:
+                if 'harbour' in grid.objects_init[index]:
                     new_harbour = Harbour(new_player.label, new_player.label + 'harbour', new_player.color,'land')
                     setattr(self, new_harbour.label, new_harbour)
-                    grid.objects[index] = ''
+                    #grid.objects_init[index] = ''
                     grid.place_object(new_harbour, index)
 
-                elif 'pawn' in grid.objects[index]:
+                elif 'pawn' in grid.objects_init[index]:
                     ''' Increase pawn number, create pawn, add it to the player, free up the grid position (it is 
                     occupied by the init item, which will cause an error when placing the pawn) and place the pawn.'''
                     pawn_counter = pawn_counter + 1
@@ -58,10 +58,10 @@ class Game:
                     new_pawn.reset_moves()
                     setattr(self, new_pawn.label, new_pawn)
                     new_player.pawn_list.append(getattr(self,new_pawn.label))
-                    grid.objects[index] = ''
+                    #grid.objects_init[index] = ''
                     grid.place_object(new_pawn, index)
 
-                elif 'boat' in grid.objects[index]:
+                elif 'boat' in grid.objects_init[index]:
                     ''' Increase boat number, create boat, add it to the player, free up the grid position (it is 
                     occupied by the init item, which will cause an error when placing the pawn) and place the pawn.'''
                     boat_counter = boat_counter + 1
@@ -71,13 +71,13 @@ class Game:
                     new_boat.reset_moves()
                     setattr(self,new_boat.label, new_boat)
                     new_player.pawn_list.append(getattr(self,new_boat.label))
-                    grid.objects[index] = ''
+                    #grid.objects_init[index] = ''
                     grid.place_object(new_boat, index)
 
-                elif 'home' in grid.objects[index]:
+                elif 'home' in grid.objects_init[index]:
                     new_home = Home(new_player.label, new_player.label + 'home', new_player.color,'home')
                     setattr(self, new_home.label, new_home)
-                    grid.objects[index] = ''
+                    #grid.objects_init[index] = ''
                     grid.place_object(new_home, index)
 
                 else:
@@ -122,13 +122,12 @@ class Game:
         '''Highlight the player's objects'''
         for i in range(self.grid.n_hexes):
             if self.grid.objects[i]:
-                if getattr(self,self.grid.objects[i]).owner == self.player_order[index]:
-                    self.visualiser.remove_object(i)                                   # Remove the pawn
-                    this_object = getattr(self,self.grid.objects[i])                   # Retrieve a copy of the pawn
-                    if this_object.moves > 0:
-                        self.visualiser.draw_object(i,this_object,'highlight')         # Re-draw the pawn highlighted
+                if self.grid.objects[i].owner == self.player_order[index]:
+                    self.visualiser.remove_object(i)                                            # Remove the pawn
+                    if self.grid.objects[i].moves > 0:
+                        self.visualiser.draw_object(i,self.grid.objects[i],'highlight')         # Re-draw the pawn highlighted
                     else:
-                        self.visualiser.draw_object(i,this_object)                     # Re-draw the pawn unhighlighted
+                        self.visualiser.draw_object(i,self.grid.objects[i])                     # Re-draw the pawn unhighlighted
 
     def adjust_resources(self,req):
         ''' Applies the intercepts and slopes specified in the config files the resource requirements. Resource order is as always ewsmf'''
@@ -155,13 +154,12 @@ class Game:
     def boat_select_fuel(self, index, resource_index):
         '''Selects a fuel card to use for moving, updates the move parameter and updates the visualisation'''
         self.visualiser.popup.destroy()                              # Close the boat's resource popup
-        this_object = getattr(self, self.grid.objects[index])        # Retrieve a copy of the boat
         if resource_index == -1:
-            this_object.deselect_fuel()                         # Deselect the fuel card if the index is -1 ("row" in the boat dialog)
+            self.grid.objects[index].deselect_fuel()                         # Deselect the fuel card if the index is -1 ("row" in the boat dialog)
             self.grid.deselect_object()              # Remove the board indicators for the boat
             self.grid.select_object(index)           # Update the visualisation to the new moves
         else:
-            this_object.select_fuel(resource_index)             # Select the fuel resource
+            self.grid.objects[index].select_fuel(resource_index)             # Select the fuel resource
             self.grid.deselect_object()              # Remove the board indicators for the boat
             self.grid.select_object(index)           # Update the visualisation to the new moves
 
@@ -189,7 +187,7 @@ class Game:
             return
 
         ''' Using the grid and hex index, retrieve the resources in the stack of the object located on the selected tile. Add up the selected resources.'''
-        res = getattr(self, self.grid.objects[index]).resources.stack # Get direct reference to the resource stack
+        res = self.grid.objects[index].resources.stack # Get direct reference to the resource stack
         temp = lambda: 0
         temp.earth = 0   # Set the resource counters
         temp.wood = 0
@@ -228,9 +226,9 @@ class Game:
         self.grid.deselect_object()
         for i in range(self.grid.n_hexes):
             if self.grid.objects[i]:
-                if getattr(self,self.grid.objects[i]).owner == self.player_order[index]:
-                    self.visualiser.remove_object(i)                                 # Remove the object
-                    self.visualiser.draw_object(i,getattr(self,self.grid.objects[i]))     # Re-draw the object as unselected
+                if self.grid.objects[i].owner == self.player_order[index]:
+                    self.visualiser.remove_object(i)                        # Remove the object
+                    self.visualiser.draw_object(i,self.grid.objects[i])     # Re-draw the object as unselected
     
     def end_player_turn(self):
         '''Ends the player's turn by activating the next player. If the last player in the sequence ends his turn, we check if the game is over. '''
@@ -498,7 +496,7 @@ class Game:
         select = []
         for i in reversed(range(0,len(checks))):
             if checks[i].get():
-                this_card = getattr(self, self.grid.objects[source_index]).resources.give_selected_card(getattr(self,self.grid.objects[destination_index]).resources,i)
+                this_card = self.grid.objects[source_index].resources.give_selected_card(self.grid.objects[destination_index].resources,i)
                 self.visualiser.popup.destroy()
 
     def update_card_counts(self):

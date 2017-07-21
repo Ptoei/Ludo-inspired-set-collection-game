@@ -1,6 +1,5 @@
 import tkinter
 from Grid import *
-import numpy
 from Game import *
 import configparser
 
@@ -15,7 +14,7 @@ class MainTK:
         self.hex_size = config.getint('Visualiser','hex_size') #Horizontal hex size in pixels
 
         '''Inititalize the functional part of the board grid '''
-        self.grid =  Grid(config.getint('Grid','hexes_x'),config.getint('Grid','hexes_y'),self,lambda: 0)
+        self.grid =  Grid(config.getint('Grid','hexes_x'), config.getint('Grid','hexes_y'), self)
 
         ''' Convert the coordinates of the hex centers to coordinates in pixels'''
         self.x_pix = (self.grid.x_coords+1)*self.hex_size/2
@@ -58,7 +57,7 @@ class MainTK:
         self.message_field.grid(columnspan=2, column=1, row=6, sticky='nw')
 
         self.game = Game(config,self.grid,self)             # Initialize the game manager
-        self.grid.game = self.game                          # Update the grid's link to the game class, it was set as void before.
+        self.grid.game = self.game                          # Set the grid's link to the game class, could not do that on grid init
 
         ''' Add score indicators for the players. '''
         tkinter.Label(self.master,text='Player points:', font=('bold')).grid(column=1, row=1, sticky='sw')
@@ -187,40 +186,39 @@ class MainTK:
 
     def enemy_resources_popup(self, index):
         '''Prints an overview of the resources in the stack belonging to an object on the board.'''
-        this_object = getattr(self.game,self.grid.objects[index]) # Retrieve the object located on hex index
         self.popup = tkinter.Toplevel(self.master)      # Create a popup window and wait for it to close)
 
-        self.popup.title(this_object.label )
+        self.popup.title(self.grid.objects[index].label )
 
         tkinter.Label(self.popup, text = 'opponent resources').grid(row=0, sticky='W')
 
         isoccupied = ''
-        if hasattr(this_object,'occupying_pawn_label'): # Only boats have this attribute
-            if len(this_object.occupying_pawn_label) > 1:
+        if hasattr(self.grid.objects[index],'occupying_pawn'): # Only boats have this attribute
+            if self.grid.objects[index].occupying_pawn:
                 isoccupied = '(pawn)'
 
         t = tkinter.Text(self.popup, width=30, height=1)
         t.config(wrap=tkinter.WORD)
         t.grid(columnspan=2, row=1)
-        t.insert('end',this_object.label + isoccupied + '\n')
+        t.insert('end',self.grid.objects[index].label + isoccupied + '\n')
 
 
         ''' Create radio buttons for stealing one resource.'''
         rows = 2 # Count the number of rows in the popup window
         keep_i = 0 # Dummy for counting the number of resources and updating the total nr of rows in the widget later.
         self.steal_resource_var = tkinter.IntVar()
-        for i in range(rows,this_object.resources.get_size()+rows):
-            tkinter.Radiobutton(self.popup, text=this_object.resources.stack[i - rows].name, variable=self.steal_resource_var, value=i - rows).grid(row=rows + keep_i, column=1, stick='W')
+        for i in range(rows,self.grid.objects[index].resources.get_size()+rows):
+            tkinter.Radiobutton(self.popup, text=self.grid.objects[index].resources.stack[i - rows].name, variable=self.steal_resource_var, value=i - rows).grid(row=rows + keep_i, column=1, stick='W')
             keep_i = i
         rows = keep_i
 
         '''  If a current player ship with moves = 0 and stealing ability is adjacent show a button. '''
-        conn_1 = self.grid.get_connections([index], 'all_conn', 1)                                               # Get all hexes one removed
-        dest_boat = [x for i, x in enumerate(conn_1) if (self.game.current_player + 'boat') in self.grid.objects[x]]  # Find current players ships one removed
-        pirates = [x for i,x in enumerate(dest_boat) if getattr(self.game, self.grid.objects[x]).moves == 0 and getattr(self.game, self.grid.objects[x]).can_steal == True]# Only keep enemy ships that have moves = 0 and can steal = 1
+        has_objects = self.grid.get_reachable_object_indices('all', index, 1)
+        boats = [x for x in has_objects if (self.game.current_player + 'boat') in self.grid.objects[x].label]  # Find current players ships one removed
+        pirates = [x for x in boats if self.grid.objects[x].moves == 0 and self.grid.objects[x].can_steal]     # Only keep enemy ships that have moves = 0 and can steal = True
 
         for i in pirates:
-            tkinter.Button(self.popup, text=self.grid.objects[i], command=lambda i=i: self.steal_resource(index, i, self.steal_resource_var)).grid(row = rows+i+1, column=0, sticky='W', pady=4)
+            tkinter.Button(self.popup, text=self.grid.objects[i].label, command=lambda i=i: self.steal_resource(index, i, self.steal_resource_var)).grid(row = rows+i+1, column=0, sticky='W', pady=4)
             rows = rows + 1
 
         self.master.wait_window(self.popup)  # Create a popup window and wait for it to close
@@ -275,7 +273,6 @@ class MainTK:
 
     def player_resources_popup(self, index):
         '''Prints an overview of the resources in the stack belonging to an object on the board.'''
-        this_object = getattr(self.game,self.grid.objects[index]) # Retrieve the object located on hex index
         self.popup = tkinter.Toplevel(self.master)      # Create a popup window and wait for it to close)
 
         tkinter.Label(self.popup, text = 'Move resources').grid(columnspan=2, row=0, sticky='W')
@@ -287,11 +284,11 @@ class MainTK:
         t.grid(columnspan=2,row=1)
 
         isoccupied = ''
-        if hasattr(this_object,'occupying_pawn_label'): # Only boats have this attribute
-            if len(this_object.occupying_pawn_label) > 1:
+        if hasattr(self.grid.objects[index],'occupying_pawn_label'): # Only boats have this attribute
+            if len(self.grid.objects[index].occupying_pawn_label) > 1:
                 isoccupied = '(pawn)'
 
-        t.insert('end',this_object.label + '(active)' + isoccupied + '\n')
+        t.insert('end',self.grid.objects[index].label + '(active)' + isoccupied + '\n')
 
         ''' TODO Position the popup in the corner furthest away from the clicked hex in order to prevent overlap with reachable hexes. '''
         ''' For now I just position the window right of the board.'''
@@ -300,25 +297,26 @@ class MainTK:
         self.popup.geometry('+' + str(w_main) + '+' + str(y_main))
 
         ''' Create buttons for shifting resources to neigboring objects if any are present. '''
-        ''' Get the indices of hexes one step removed from the active hex and find harboars, homebases and boats.'''
-        conn_1 = self.grid.get_connections([index], 'all_conn', 1)
-        dest_harbour = [x for i, x in enumerate(conn_1) if (self.game.current_player + 'harbour') in self.grid.objects[x]]
-        dest_home = [x for i, x in enumerate(conn_1) if (self.game.current_player + 'home') in self.grid.objects[x]]
-        dest_boat = [x for i, x in enumerate(conn_1) if (self.game.current_player + 'boat') in self.grid.objects[x]]
+        ''' Get the indices of hexes one step removed from the active hex and find harbors, homebases and boats.'''
+        has_object = self.grid.get_reachable_object_indices('all', index, 1)
+
+        dest_harbour = [x for x in has_object if (self.game.current_player + 'harbour') in self.grid.objects[x].label]
+        dest_home = [x for x in has_object if (self.game.current_player + 'home') in self.grid.objects[x].label]
+        dest_boat = [x for x in has_object if (self.game.current_player + 'boat') in self.grid.objects[x].label]
 
         rows = 2
         ''' For each harbour, home base and boat 1 step removed, add a button for shifting resources.'''
         for i in dest_harbour:
-            tkinter.Button(self.popup, text=self.grid.objects[i], command=lambda i=i: self.game.shift_resources(index, i, vars)).grid(row=rows, column=0, sticky='W', pady=4)
+            tkinter.Button(self.popup, text=self.grid.objects[i].label, command=lambda i=i: self.game.shift_resources(index, i, vars)).grid(row=rows, column=0, sticky='W', pady=4)
             rows = rows + 1
 
         for i in dest_home:
-            tkinter.Button(self.popup, text=self.grid.objects[i], command=lambda i=i: self.game.shift_resources(index, i, vars)).grid(row=rowss, column=0, sticky='W', pady=4)
+            tkinter.Button(self.popup, text=self.grid.objects[i].label, command=lambda i=i: self.game.shift_resources(index, i, vars)).grid(row=rows, column=0, sticky='W', pady=4)
             rows = rows + 1
 
         for i in dest_boat:
             # tkinter.Button(popup, text=grid.objects[i], command=print('boat'+str(i))).grid(row=rows+i+1, sticky='W', pady=4)
-            tkinter.Button(self.popup, text=self.grid.objects[i], command=lambda i=i: self.game.shift_resources(index, i, vars)).grid(row=rows,
+            tkinter.Button(self.popup, text=self.grid.objects[i].label, command=lambda i=i: self.game.shift_resources(index, i, vars)).grid(row=rows,
                                                                                                column=0, sticky='W', pady=4)
             rows = rows + 1
 
@@ -332,12 +330,12 @@ class MainTK:
         keep_i = 0 # Dummy for counting the number of resources and updating the total nr of rows in the widget later.
         checks = [] # Declare the list of checkboxes
         vars = [] # Declare the list of variables belonging to the checkboxes
-        for i in range(rows,this_object.resources.get_size()+rows):
+        for i in range(rows,self.grid.objects[index].resources.get_size()+rows):
             vars.append(tkinter.IntVar())   # Add a variable to the list
-            desc = this_object.resources.stack[i-rows].name + ' (ewsmf: ' + this_object.resources.stack[i-rows].earth + ' ' + \
-                this_object.resources.stack[i - rows].wood + ' ' + this_object.resources.stack[i - rows].stone + ' ' + \
-                this_object.resources.stack[i - rows].metal + ' ' + this_object.resources.stack[i-rows].fuel + ' ' + \
-                this_object.resources.stack[i - rows].collect + ')'
+            desc = self.grid.objects[index].resources.stack[i-rows].name + ' (ewsmf: ' + self.grid.objects[index].resources.stack[i-rows].earth + ' ' + \
+                   self.grid.objects[index].resources.stack[i - rows].wood + ' ' + self.grid.objects[index].resources.stack[i - rows].stone + ' ' + \
+                   self.grid.objects[index].resources.stack[i - rows].metal + ' ' + self.grid.objects[index].resources.stack[i-rows].fuel + ' ' + \
+                   self.grid.objects[index].resources.stack[i - rows].collect + ')'
 
             checks.append([tkinter.Checkbutton(t, text = desc,variable = vars[i-rows]).grid(row = i, column=0,sticky='w')])
             keep_i = i
@@ -346,7 +344,7 @@ class MainTK:
 
 
         ''' For boats belonging to the active player we add a radiobutton with the fuel resources. Changing the dial will change the moveable hexes.'''
-        if 'boat' in this_object.label and self.game.current_player in this_object.label and this_object.occupying_pawn_label != '':
+        if 'boat' in self.grid.objects[index].label and self.game.current_player in self.grid.objects[index].label and self.grid.objects[index].occupying_pawn:
             tkinter.Label(self.popup, text='Move options').grid(row=0, column= 1, sticky='W')
             t = tkinter.Text(self.popup, width=30)
             t.config(wrap=tkinter.WORD)
@@ -354,18 +352,17 @@ class MainTK:
 
             ''' Create a list of radiobuttons for all resources'''
             self.burn_resource_var = tkinter.IntVar()
-            self.burn_resource_var.set(this_object.selected_fuel)  # Set the radiobutton variable to the selected fuel indicator of the boat object
+            self.burn_resource_var.set(self.grid.objects[index].selected_fuel)  # Set the radiobutton variable to the selected fuel indicator of the boat object
             tkinter.Radiobutton(t, text='Row', variable = self.burn_resource_var, value = -1, command = lambda: self.game.boat_select_fuel(index, self.burn_resource_var.get())).grid(row=1, column=1, stick = 'W')# 0: only use basic moves, don't use fuel
             rows = 2  # Count the number of rows in the popup window
             keep_i = 0
-            for i in range(rows, this_object.resources.get_size() + rows):
-                if int(this_object.resources.stack[i - rows].fuel) > 0:
-                    #tkinter.Radiobutton(self.popup, text=this_object.resources.stack[i - rows].name, variable=burn_resource_var, value = i-rows).grid(row=i, stick='W')
-                    tkinter.Radiobutton(t, text=this_object.resources.stack[i - rows].name, variable=self.burn_resource_var, value = i - rows, command = lambda: self.game.boat_select_fuel(index, self.burn_resource_var.get())).grid(row=rows+keep_i, column=1, stick='W')
+            for i in range(rows, self.grid.objects[index].resources.get_size() + rows):
+                if int(self.grid.objects[index].resources.stack[i - rows].fuel) > 0:
+                    tkinter.Radiobutton(t, text=self.grid.objects[index].resources.stack[i - rows].name, variable=self.burn_resource_var, value = i - rows, command = lambda: self.game.boat_select_fuel(index, self.burn_resource_var.get())).grid(row=rows+keep_i, column=1, stick='W')
                     keep_i = keep_i+1  # Count the number of rows in the popup window
 
         ''' For home bases belonging to the active player we add an overview of the assignment.'''
-        if 'home' in this_object.label and self.game.current_player in this_object.label:
+        if 'home' in self.grid.objects[index].label and self.game.current_player in self.grid.objects[index].label:
             # Retrieve the active player assignment
             assignment = self.game.get_current_player().assignment               # Also used for call by checkbuttons!
             button1, button2 = self.show_assignment(index, self.popup, assignment, vars)
@@ -429,34 +426,31 @@ class MainTK:
         t.config(wrap=tkinter.WORD)
         t.grid(row=1, column= 3, sticky='W')
 
-        this_object = getattr(self.game,self.grid.objects[index]) # Retrieve the object located on hex index
-
         ''' Loop over all resources in the home town and all resource types to create the appropriate buttons.'''
         res_labels = ['earth','wood','stone','metal','fuel']
         self.res_vars = []  # Variable for the button presses (has to be persistent).
-        for i in range(0,this_object.resources.get_size()):
+        for i in range(0,self.grid.objects[index].resources.get_size()):
             self.res_vars.append(tkinter.StringVar())   # Create a new variable for the resource.
             self.res_vars[i].set('none')                # Set the default value to don't use resource.
 
             ''' Create the button for not using the resource. This is the default value.'''
-            tkinter.Radiobutton(t, text="Don't use " + this_object.resources.stack[i].name, indicatoron = 0, variable = self.res_vars[i], command=lambda i=i: self.game.check_assignment(index, self.res_vars,assignment,button1,button2), value = 'none' ).grid(row=i, column=0, stick = 'W')# 0: only use basic moves, don't use fuel
+            tkinter.Radiobutton(t, text="Don't use " + self.grid.objects[index].resources.stack[i].name, indicatoron = 0, variable = self.res_vars[i], command=lambda i=i: self.game.check_assignment(index, self.res_vars,assignment,button1,button2), value = 'none' ).grid(row=i, column=0, stick = 'W')# 0: only use basic moves, don't use fuel
 
             ''' Loop over the five resource types and create a button if it has a value larger than 0 for this resource. '''
             for j,k in zip(res_labels,range(0,5)):
-                if int(getattr(this_object.resources.stack[i],j)) > 0:
-                    tkinter.Radiobutton(t, text= getattr(this_object.resources.stack[i], j) + ' ' + j, indicatoron = 0, variable = self.res_vars[i], command=lambda i=i: self.game.check_assignment(index, self.res_vars,assignment,button1,button2), value = j ).grid(row=i, column=k+1, stick = 'W')# 0: only use basic moves, don't use fuel
+                if int(getattr(self.grid.objects[index].resources.stack[i],j)) > 0:
+                    tkinter.Radiobutton(t, text= getattr(self.grid.objects[index].resources.stack[i], j) + ' ' + j, indicatoron = 0, variable = self.res_vars[i], command=lambda i=i: self.game.check_assignment(index, self.res_vars,assignment,button1,button2), value = j ).grid(row=i, column=k+1, stick = 'W')# 0: only use basic moves, don't use fuel
 
             ''' Add a final button for the collectible.'''
-            if getattr(this_object.resources.stack[i],'collect') != 'none':
-                tkinter.Radiobutton(t, text=this_object.resources.stack[i].collect, indicatoron=0, variable=self.res_vars[i],command=lambda i=i: self.game.check_assignment(index, self.res_vars, assignment, button1, button2), value='collect').grid(row=i, column=6,stick='W')  # 0: only use basic moves, don't use fuel
+            if getattr(self.grid.objects[index].resources.stack[i],'collect') != 'none':
+                tkinter.Radiobutton(t, text=self.grid.objects[index].resources.stack[i].collect, indicatoron=0, variable=self.res_vars[i],command=lambda i=i: self.game.check_assignment(index, self.res_vars, assignment, button1, button2), value='collect').grid(row=i, column=6,stick='W')  # 0: only use basic moves, don't use fuel
 
 
     def steal_resource(self, source_index, destination_index, resource_index):
         ''' Translates the list checkboxes into an index list relating to the resource stack in the source object.
         The list and objects are then passed to game.shift_resources to move the selected resources from source to destination.'''
-        select = []
-        pirate = getattr(self.game,self.grid.objects[destination_index])
-        victim = getattr(self.game,self.grid.objects[source_index])
+        pirate = self.grid.objects[destination_index]
+        victim = self.grid.objects[source_index]
         pirate.steal_resource_from_boat(victim, resource_index.get())
         self.popup.destroy()
 
@@ -466,9 +460,9 @@ class MainTK:
 
     def show_boat_options(self, index):
         ''' Shows the options for a selected boat'''
-        boat = getattr(self.game, self.grid.objects[index])
+
         ''' Show the tiles on a which an occupying pawn, if present, can disembark.'''
-        if boat.occupying_pawn_label != '' and boat.moves > 0:
+        if self.grid.objects[index].occupying_pawn and self.grid.objects[index].moves > 0:
             ''' Find all unoccupied land tiles within moveable distance of the pawn on the boat.'''
             reachable_land = self.grid.get_reachable_land(index)
             ''' Draw a down arrow on all reachable hexes for the pawn'''
@@ -485,15 +479,16 @@ class MainTK:
                                 outline = 'black', fill='white'))
 
         ''' Show enemy ships which can be boarded and which have something to loot'''
-        if boat.moves == 0 and boat.can_steal: # Boat already moved and hasn't stolen in this turn
+        if self.grid.objects[index].moves == 0 and self.grid.objects[index].can_steal: # Boat already moved and hasn't stolen in this turn
             reachable_sea = self.grid.get_connections([index],'water_conn',1) # Get all sea hexes one removed. Boat can only steal from neighbouring hexes
             for i in reachable_sea:
-                if 'boat' in self.grid.objects[i] and self.game.current_player not in self.grid.objects[i]: # Identify enemy ships
-                    if getattr(self.game,self.grid.objects[i]).resources.get_size() > 0:         # Check if there's anything to steal
-                        x_pix = self.x_pix[i]
-                        y_pix = self.y_pix[i]
-                        self.sel_items.append(
-                            self.board.create_polygon(x_pix + 0.15 * self.hex_size, y_pix + 0.3 * self.hex_size,
+                if self.grid.objects[i]: # First see if there is an object there at all
+                    if 'boat' in self.grid.objects[i].label and self.game.current_player not in self.grid.objects[i].owner: # Identify enemy ships
+                        if getattr(self.game,self.grid.objects[i]).resources.get_size() > 0:         # Check if there's anything to steal
+                            x_pix = self.x_pix[i]
+                            y_pix = self.y_pix[i]
+                            self.sel_items.append(
+                                self.board.create_polygon(x_pix + 0.15 * self.hex_size, y_pix + 0.3 * self.hex_size,
                                                   x_pix - 0.15 * self.hex_size, y_pix + 0.3 * self.hex_size,
                                                   x_pix - 0.15 * self.hex_size, y_pix,
                                                   x_pix - 0.25 * self.hex_size, y_pix,
@@ -505,7 +500,7 @@ class MainTK:
     def show_pawn_options(self,index):
         '''Display the dig and move options in the hex'''
         # Only show options if pawn has at least 1 move left and if the resource stack for the occupied landscape type still has cards
-        if getattr(self.game,self.grid.objects[index]).moves > 0 and self.grid.get_landscape_stack_size_by_index(index) > 0:
+        if self.grid.objects[index].moves > 0 and self.grid.get_landscape_stack_size_by_index(index) > 0:
             x_pix = self.x_pix[index]
             y_pix = self.y_pix[index]
 
