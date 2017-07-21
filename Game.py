@@ -1,5 +1,5 @@
-import Pawn as pawn             # My pawn class for the land pawns, boats and home towns
-from Cards import *             # My cards class for managing drawpiles of land tiles and resource cards
+from Pawn import *              # Pawn class for the land pawns, boats and home towns
+from Cards import *             # Cards class for managing drawpiles of land tiles and resource cards
 import numpy                    # The numpy package for connectivity matrix manipulation and solving the linear resource requirement equations.
 from random import shuffle      # The randomize function for shuffling the player order
 import os                       # Needed for deleting generated config files when the program is closed
@@ -44,7 +44,7 @@ class Game:
 
             for index in objects_index:
                 if 'harbour' in grid.objects[index]:
-                    new_harbour = pawn.Harbour(new_player.label, new_player.label + 'harbour', new_player.color,'land')
+                    new_harbour = Harbour(new_player.label, new_player.label + 'harbour', new_player.color,'land')
                     setattr(self, new_harbour.label, new_harbour)
                     grid.objects[index] = ''
                     grid.place_object(new_harbour, index)
@@ -53,7 +53,7 @@ class Game:
                     ''' Increase pawn number, create pawn, add it to the player, free up the grid position (it is 
                     occupied by the init item, which will cause an error when placing the pawn) and place the pawn.'''
                     pawn_counter = pawn_counter + 1
-                    new_pawn = pawn.Pawn(new_player.label, new_player.label + 'team' + str(pawn_counter), new_player.color,'land')
+                    new_pawn = Pawn(new_player.label, new_player.label + 'team' + str(pawn_counter), new_player.color,'land')
                     new_pawn.set_moves_per_turn(self.config.getint('Game','pawn_moves'))
                     new_pawn.reset_moves()
                     setattr(self, new_pawn.label, new_pawn)
@@ -65,7 +65,7 @@ class Game:
                     ''' Increase boat number, create boat, add it to the player, free up the grid position (it is 
                     occupied by the init item, which will cause an error when placing the pawn) and place the pawn.'''
                     boat_counter = boat_counter + 1
-                    new_boat = pawn.Boat(new_player.label, new_player.label + 'boat' + str(boat_counter), new_player.color, 'water', 6)
+                    new_boat = Boat(new_player.label, new_player.label + 'boat' + str(boat_counter), new_player.color, 'water', 6)
                     new_boat.set_moves_per_turn(self.config.getint('Game','boat_moves'))
                     new_boat.set_ring(self.config.getint('Game','boat_ring'))
                     new_boat.reset_moves()
@@ -75,7 +75,7 @@ class Game:
                     grid.place_object(new_boat, index)
 
                 elif 'home' in grid.objects[index]:
-                    new_home = pawn.Home(new_player.label, new_player.label + 'home', new_player.color,'home')
+                    new_home = Home(new_player.label, new_player.label + 'home', new_player.color,'home')
                     setattr(self, new_home.label, new_home)
                     grid.objects[index] = ''
                     grid.place_object(new_home, index)

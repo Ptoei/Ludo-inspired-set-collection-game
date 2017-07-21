@@ -1,7 +1,7 @@
 import tkinter
-import Grid
+from Grid import *
 import numpy
-import Game
+from Game import *
 import configparser
 
 class MainTK:
@@ -15,7 +15,7 @@ class MainTK:
         self.hex_size = config.getint('Visualiser','hex_size') #Horizontal hex size in pixels
 
         '''Inititalize the functional part of the board grid '''
-        self.grid =  Grid.Grid(config.getint('Grid','hexes_x'),config.getint('Grid','hexes_y'),self,lambda: 0)
+        self.grid =  Grid(config.getint('Grid','hexes_x'),config.getint('Grid','hexes_y'),self,lambda: 0)
 
         ''' Convert the coordinates of the hex centers to coordinates in pixels'''
         self.x_pix = (self.grid.x_coords+1)*self.hex_size/2
@@ -57,7 +57,7 @@ class MainTK:
         self.message_field = tkinter.Text(self.master, width=30, height=10, state='disabled')
         self.message_field.grid(columnspan=2, column=1, row=6, sticky='nw')
 
-        self.game = Game.Game(config,self.grid,self)        # Initialize the game manager
+        self.game = Game(config,self.grid,self)             # Initialize the game manager
         self.grid.game = self.game                          # Update the grid's link to the game class, it was set as void before.
 
         ''' Add score indicators for the players. '''
