@@ -179,12 +179,12 @@ class Game:
 
         return rounded
 
-    def check_assignment(self, index, vars, assignment, button1, button2):
+    def check_assignment(self, index, vars, assignment):
         ''' Checks whether selected resources fulfill the tier1 or tier2 assignments. '''
         ''' Because this function is bound to the checkbutton array which is used for all objects which contain resources,'''
         ''' often there will be no assignment or buttons. Check whether assignment, button1 and 2 are a value. If not, break. '''
-        if assignment == [] or button1 == [] or button2 == []:
-            return
+        #if assignment == [] or button1 == [] or button2 == []:
+        #    return
 
         ''' Using the grid and hex index, retrieve the resources in the stack of the object located on the selected tile. Add up the selected resources.'''
         res = self.grid.objects[index].resources.stack # Get direct reference to the resource stack
@@ -208,15 +208,16 @@ class Game:
         if assignment.tier1_fulfilled == '0' and temp.earth >= int(assignment.tier1_req_earth) and \
                         temp.wood >= int(assignment.tier1_req_wood) and temp.stone >= int(assignment.tier1_req_stone) and \
                         temp.metal >= int(assignment.tier1_req_metal) and temp.fuel >= int(assignment.tier1_req_fuel):
-            button1.config(state='normal')
+            #button1.config(state='normal')
+            self.visualiser.ass_enable_1(True)
         else:
-            button1.config(state='disabled')
+            self.visualiser.ass_enable_1(False)
 
         ''' If tier1 is fulfilled and any of the selected resources fulfills the tier2 requirement, then enable button2.'''
         if assignment.tier1_fulfilled == '1' and temp.collect > 0:
-            button2.config(state='normal')
+            self.visualiser.ass_enable_2(True)
         else:
-            button2.config(state='disabled')
+            self.visualiser.ass_enable_2(False)
 
     def deactivate_player(self,index):
         ''' Update the player's point count and de-highlight the player's pawns in case not all were used. '''
@@ -252,7 +253,8 @@ class Game:
 
         self.visualiser.log('Attempting to fulfull tier 1 assigment...')
 
-        res = getattr(self, self.grid.objects[index]).resources # Get direct reference to the resource stack
+        res = self.grid.objects[index].resources # Get a shorter reference to the resource stack
+
         counter = lambda: 0
         counter.earth = int(assignment.tier1_req_earth)   # Set the resource counters
         counter.wood = int(assignment.tier1_req_wood)
@@ -297,7 +299,7 @@ class Game:
 
         self.visualiser.log('Attempting to fulfull tier 2 assigment...')
 
-        res = getattr(self, self.grid.objects[index]).resources # Get direct reference to the resource stack
+        res = self.grid.objects[index].resources # Get a short reference to the resource stack
         ''' Loop over the selected resources and remove them from the stack if it is the right type of special resource.
         These resources are transferred to the assignment tier2 stack. '''
         i = res.get_size() -1 # We will loop backwards, that way we don't get indexing problems when we pop a resource.

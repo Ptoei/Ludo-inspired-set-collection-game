@@ -82,6 +82,20 @@ class MainTK:
             start = -1
         return start
 
+    def ass_enable_1(self, isenabled):
+        ''' Enabled the fulfill button for tier 1 assignment.'''
+        if isenabled:
+            self.b1.config(state='normal')
+        else:
+            self.b1.config(state='disabled')
+
+    def ass_enable_2(self, isenabled):
+        ''' Enabled the fulfill button for tier 2 assignment.'''
+        if isenabled:
+            self.b2.config(state='normal')
+        else:
+            self.b2.config(state='disabled')
+
     def assign_tile_colors(self,config):
         ''' Assigns colors to each hex based on the terrain type. Replace with graphics later.'''
 
@@ -275,26 +289,19 @@ class MainTK:
         '''Prints an overview of the resources in the stack belonging to an object on the board.'''
         self.popup = tkinter.Toplevel(self.master)      # Create a popup window and wait for it to close)
 
-        tkinter.Label(self.popup, text = 'Move resources').grid(columnspan=2, row=0, sticky='W')
-
         ''' Show object info'''
         ''' First prepare a string to indicate whether the clicked object belongs to the active player.'''
-        t = tkinter.Text(self.popup,width=30,height=1)
-        t.config(wrap=tkinter.WORD)
-        t.grid(columnspan=2,row=1)
-
         isoccupied = ''
         if hasattr(self.grid.objects[index],'occupying_pawn_label'): # Only boats have this attribute
             if len(self.grid.objects[index].occupying_pawn_label) > 1:
                 isoccupied = '(pawn)'
 
+        t = tkinter.Text(self.popup,width=30,height=1)
+        t.config(wrap=tkinter.WORD)
+        t.grid(column=0, row=0, columnspan=5)
         t.insert('end',self.grid.objects[index].label + '(active)' + isoccupied + '\n')
 
-        ''' TODO Position the popup in the corner furthest away from the clicked hex in order to prevent overlap with reachable hexes. '''
-        ''' For now I just position the window right of the board.'''
-        y_main = self.master.winfo_y()
-        w_main = self.master.winfo_width()
-        self.popup.geometry('+' + str(w_main) + '+' + str(y_main))
+        tkinter.Label(self.popup, text = 'Move resources').grid(column=0, row=1, sticky='W')
 
         ''' Create buttons for shifting resources to neigboring objects if any are present. '''
         ''' Get the indices of hexes one step removed from the active hex and find harbors, homebases and boats.'''
@@ -320,10 +327,17 @@ class MainTK:
                                                                                                column=0, sticky='W', pady=4)
             rows = rows + 1
 
+        ''' TODO Position the popup in the corner furthest away from the clicked hex in order to prevent overlap with reachable hexes. '''
+        ''' For now I just position the window right of the board.'''
+        y_main = self.master.winfo_y()
+        w_main = self.master.winfo_width()
+        self.popup.geometry('+' + str(w_main) + '+' + str(y_main))
+
+
 
         t = tkinter.Text(self.popup,width=30,height=1)
         t.config(wrap=tkinter.WORD)
-        t.grid(columnspan=2,row=rows)
+        t.grid(column=0,row=rows)
 
         ''' Create a list of checkboxes for all resources'''
         rows = 1 # Count the number of rows in the popup window
@@ -345,10 +359,10 @@ class MainTK:
 
         ''' For boats belonging to the active player we add a radiobutton with the fuel resources. Changing the dial will change the moveable hexes.'''
         if 'boat' in self.grid.objects[index].label and self.game.current_player in self.grid.objects[index].label and self.grid.objects[index].occupying_pawn:
-            tkinter.Label(self.popup, text='Move options').grid(row=0, column= 1, sticky='W')
+            tkinter.Label(self.popup, text='Move options').grid(row=1, column= 1, sticky='W')
             t = tkinter.Text(self.popup, width=30)
             t.config(wrap=tkinter.WORD)
-            t.grid(row=1, column=2, sticky='W')
+            t.grid(row=2, rowspan=4, column=1, sticky='W')
 
             ''' Create a list of radiobuttons for all resources'''
             self.burn_resource_var = tkinter.IntVar()
@@ -365,8 +379,8 @@ class MainTK:
         if 'home' in self.grid.objects[index].label and self.game.current_player in self.grid.objects[index].label:
             # Retrieve the active player assignment
             assignment = self.game.get_current_player().assignment               # Also used for call by checkbuttons!
-            button1, button2 = self.show_assignment(index, self.popup, assignment, vars)
-            self.show_resource_choices(index,self.popup,assignment,button1,button2)
+            self.show_assignment(index, self.popup, assignment, vars)
+            self.show_resource_choices(index,self.popup,assignment)
 
         self.master.wait_window(self.popup)  # Create a popup window and wait for it to close
 
@@ -388,7 +402,7 @@ class MainTK:
         tkinter.Label(target_canvas, text = 'Assignment').grid(row=0, column=1, sticky='W')
         t = tkinter.Text(target_canvas,width = 30)
         t.config(wrap=tkinter.WORD)
-        t.grid(row=1, column= 2, sticky='W')
+        t.grid(row=1,rowspan=4, column= 2, sticky='W')
         t.insert('end', assignment.name + ': ')
         t.insert('end', assignment.description + '\n')
         t.insert('end', 'Stage one description: ' + assignment.tier1_desc + ' After you finish stage one you can gain points from stage 2.' + '\n')
@@ -401,23 +415,23 @@ class MainTK:
         else:
             t.insert('end', 'Stage 1 fulfilled: ' "\n")
 
-        b1 = tkinter.Button(t, text='Fulfill',state='disabled', command=lambda: self.game.fulfill_tier1(index, self.res_vars, assignment, target_canvas))
-        t.window_create('end', window=b1)
+        self.b1 = tkinter.Button(t, text='Fulfill',state='disabled', command=lambda: self.game.fulfill_tier1(index, self.res_vars, assignment, target_canvas))
+        t.window_create('end', window=self.b1)
 
         ''' Assignment stage 2 '''
         t.insert('end', '\n Stage two description: ' + assignment.tier2_desc + "\n")
         if assignment.tier1_fulfilled == '0':
             t.insert('end', 'First complete stage 1')
 
-        b2 = tkinter.Button(t, text='Fulfill',state='disabled', command=lambda: self.game.fulfill_tier2(index, self.res_vars, assignment, target_canvas))
-        t.window_create('end', window=b2)
+        self.b2 = tkinter.Button(t, text='Fulfill',state='disabled', command=lambda: self.game.fulfill_tier2(index, self.res_vars, assignment, target_canvas))
+        t.window_create('end', window=self.b2)
         t.insert('end', "\n" 'Collected:' "\n") # Show the specials which are already added to the assignment
         for i in range(0,assignment.tier2_stack.get_size()):
             t.insert('end', assignment.tier2_stack.stack[i].name + '\n')
 
-        return b1, b2 # The handle to the button can be used to activate/deactive it based on the selected resources.
+        #return b1, b2 # The handle to the button can be used to activate/deactive it based on the selected resources.
 
-    def show_resource_choices(self,index,target_canvas,assignment,button1,button2):
+    def show_resource_choices(self,index,target_canvas,assignment):
         ''' Displays a row of buttons for each resource in a home town. To be used for fulfilling assigments.'''
 
         ''' Give a title and make a new panel in the popup.'''
@@ -434,16 +448,16 @@ class MainTK:
             self.res_vars[i].set('none')                # Set the default value to don't use resource.
 
             ''' Create the button for not using the resource. This is the default value.'''
-            tkinter.Radiobutton(t, text="Don't use " + self.grid.objects[index].resources.stack[i].name, indicatoron = 0, variable = self.res_vars[i], command=lambda i=i: self.game.check_assignment(index, self.res_vars,assignment,button1,button2), value = 'none' ).grid(row=i, column=0, stick = 'W')# 0: only use basic moves, don't use fuel
+            tkinter.Radiobutton(t, text="Don't use " + self.grid.objects[index].resources.stack[i].name, indicatoron = 0, variable = self.res_vars[i], command=lambda i=i: self.game.check_assignment(index, self.res_vars,assignment), value = 'none' ).grid(row=i, column=0, stick = 'W')# 0: only use basic moves, don't use fuel
 
             ''' Loop over the five resource types and create a button if it has a value larger than 0 for this resource. '''
             for j,k in zip(res_labels,range(0,5)):
                 if int(getattr(self.grid.objects[index].resources.stack[i],j)) > 0:
-                    tkinter.Radiobutton(t, text= getattr(self.grid.objects[index].resources.stack[i], j) + ' ' + j, indicatoron = 0, variable = self.res_vars[i], command=lambda i=i: self.game.check_assignment(index, self.res_vars,assignment,button1,button2), value = j ).grid(row=i, column=k+1, stick = 'W')# 0: only use basic moves, don't use fuel
+                    tkinter.Radiobutton(t, text= getattr(self.grid.objects[index].resources.stack[i], j) + ' ' + j, indicatoron = 0, variable = self.res_vars[i], command=lambda i=i: self.game.check_assignment(index, self.res_vars,assignment), value = j ).grid(row=i, column=k+1, stick = 'W')# 0: only use basic moves, don't use fuel
 
             ''' Add a final button for the collectible.'''
             if getattr(self.grid.objects[index].resources.stack[i],'collect') != 'none':
-                tkinter.Radiobutton(t, text=self.grid.objects[index].resources.stack[i].collect, indicatoron=0, variable=self.res_vars[i],command=lambda i=i: self.game.check_assignment(index, self.res_vars, assignment, button1, button2), value='collect').grid(row=i, column=6,stick='W')  # 0: only use basic moves, don't use fuel
+                tkinter.Radiobutton(t, text=self.grid.objects[index].resources.stack[i].collect, indicatoron=0, variable=self.res_vars[i],command=lambda i=i: self.game.check_assignment(index, self.res_vars, assignment), value='collect').grid(row=i, column=6,stick='W')  # 0: only use basic moves, don't use fuel
 
 
     def steal_resource(self, source_index, destination_index, resource_index):
