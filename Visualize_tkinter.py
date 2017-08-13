@@ -3,8 +3,8 @@ import configparser
 
 import numpy
 
-from grid import Grid
-from game import Game
+from Grid import Grid
+from Game import Game
 
 class MainTK:
     def __init__(self,config_file):
@@ -71,7 +71,7 @@ class MainTK:
 
         self.board.bind("<Button 1>", lambda event: self.click(event))  # Mouse click event for the game map
         self.popup = []         # Iniitialize reference variable to popup windows so we can destroy them from everywhere.
-        tkinter.mainloop()      # Start the tkinter loop
+        #tkinter.mainloop()      # Start the tkinter loop
 
     def add_player_tag(self, textbox, message):
         ''' Adds formatting to a text field which highlights the player's name in his color. '''

@@ -7,7 +7,7 @@ import math
 import numpy
 
 # Pawn class for the land pawns, boats and home towns
-from pawn import Pawn, Harbour, Boat, Home
+from Pawn import Pawn, Harbour, Boat, Home
 # Cards class for managing drawpiles of land tiles and resource cards
 from cards import DrawPile, Stack
 # The randomize function for shuffling the player order
@@ -80,7 +80,11 @@ class Game:
         self.visualiser = visualiser
         self.config = config
         # Retrieve the number of players
-        self.n_players = config.getint('Game', 'n_players')
+        self.game_config = configparser.ConfigParser()
+        # Config file which stores the player information
+        self.game_config.read('Game.ini')
+        # Retrieve the number of players
+        self.n_players = self.game_config.getint('Players', 'n_players')
         # Assign colors to players. May want to move this to config at some point.
         self.player_colors = ['red', 'blue', 'green', 'orange', 'pink', 'purple']
         # Inititalize the list which will store the player order
