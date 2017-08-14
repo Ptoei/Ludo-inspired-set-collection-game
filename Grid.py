@@ -1,8 +1,10 @@
-from Cards import *
-from Hexgrid import *
-import numpy
 import csv
 import configparser
+
+import numpy
+
+from cards import DrawPile
+from hexgrid import Hexgrid
 
 class Grid(Hexgrid):
     def __init__(self,size_x,size_y, visualiser):

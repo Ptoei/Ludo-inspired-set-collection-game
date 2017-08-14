@@ -1,7 +1,10 @@
 import tkinter
-from Grid import *
-from Game import *
 import configparser
+
+import numpy
+
+from grid import Grid
+from game import Game
 
 class MainTK:
     def __init__(self,config_file):

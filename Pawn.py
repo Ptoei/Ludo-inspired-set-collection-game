@@ -1,4 +1,4 @@
-import Cards as cards
+import cards
 
 class Pawn:
     '''Class for moving board pieces. Each piece maintains its' own position on the board and checks with
