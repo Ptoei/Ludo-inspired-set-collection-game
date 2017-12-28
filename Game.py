@@ -9,7 +9,7 @@ import numpy
 # Pawn class for the land pawns, boats and home towns
 from Pawn import Pawn, Harbour, Boat, Home
 # Cards class for managing drawpiles of land tiles and resource cards
-from cards import DrawPile, Stack
+from Cards import DrawPile, Stack
 # The randomize function for shuffling the player order
 from random import shuffle
 

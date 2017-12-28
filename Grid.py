@@ -3,8 +3,8 @@ import configparser
 
 import numpy
 
-from cards import DrawPile
-from hexgrid import Hexgrid
+from Cards import DrawPile
+from Hexgrid import Hexgrid
 
 class Grid(Hexgrid):
     def __init__(self,size_x,size_y, visualiser):
