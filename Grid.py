@@ -202,46 +202,62 @@ class Grid(Hexgrid):
         return [x for i, x in enumerate(all_reachable_pawn) if self.objects[x] == '']
 
     def load_map(self, config):
-        ''' Creates a game board with player start setup from csv file'''
 
-        '''Open de board file. If the tile type is random or land, a random land tile needs to be drawn.
-        Otherwise the tile type specified in the board file is copied.'''
-        with open(config.get('Game','board')) as f:
+        """Create a game board with player start setup from csv file.
+
+        """
+
+        # Open de board file. If the tile type is random or land, a random land tile needs to be drawn.
+        # Otherwise the tile type specified in the board file is copied.
+        with open(config.get('Game','board'), encoding='utf-8') as f:
             reader = csv.reader(f, delimiter=',')
-            next(reader, 'none')  # skip the header
+            # skip the header
+            next(reader, 'none')
             for row, index in zip(reader, range(0, self.n_hexes)):
-                self.tiles[index] = row[1]  # The tile type is specified in row 1 the input file. Randomized tiles are handled below
-                if row[2]:                  # Row 2 contains the locations of the player objects. These will later be processed during init of Game class
+                # The tile type is specified in row 1 the input file. Randomized tiles are handled below
+                self.tiles[index] = row[1]
+                # Row 2 contains the locations of the player objects. These will later be processed during
+                # init of Game class.
+                if row[2]:
                     self.objects_init[index] = 'init_' + row[3] + '_' + row[2]
 
-            ''' Determine how many of each landscape tile we need for the randomized tiles. There is two types of 
-            random tiles: 1. random (all tile types, including water) and 2. land (random but has to be land). '''
-            # Count the numbmer of random entries
-            # Count the nuber of land entires
-            n_random = self.tiles.count('random') + self.tiles.count('land')                  # Total number of ranomized tiles
-            n_land = numpy.floor(self.tiles.count('random')/6 + self.tiles.count('land')/5)   # Number of land tiles required of each type is random/6 + land/5
-            n_water = n_random - 5*n_land                                                       # Number of water is all that remains
-            this_config = configparser.ConfigParser()                                           # Initialize a new config structure
-            this_config.read(config.get('Grid', 'tile_file'))                                   # Load a template for all tiles (single copy each)
+            # Determine how many of each landscape tile we need for the randomized tiles. There are two types of
+            # random tiles: 1. random (all tile types, including water) and 2. land (random but has to be land).
+            # Count the number of random entries.
+            n_random = self.tiles.count('random') + self.tiles.count('land')
+            # Determine the number of land tiles required of each type. This is random/6 + land/5.
+            n_land = numpy.floor(self.tiles.count('random')/6 + self.tiles.count('land')/5)
+            # Number of water is all that remains
+            n_water = n_random - 5*n_land
+            # Initialize a new config structure
+            this_config = configparser.ConfigParser()
+            # Load a template for all tiles (single copy each)
+            this_config.read(config.get('Grid', 'tile_file'))
 
-            for type in ['sand','forest','meadow','rock','swamp']:                          # Set the number of copies for each tile type
+            # Set the number of copies for each tile type.
+            for type in ['sand','forest','meadow','rock','swamp']:
                 this_config.set(type, 'copies', str(int(n_land)))
             this_config.set('water', 'copies', str(int(n_water)))
 
-            with open(config.get('Grid', 'tile_temp'), 'w') as configfile:        # Write the result to a temporary ini file
+            # Write the result to a temporary ini file
+            with open(config.get('Grid', 'tile_temp'), 'w') as configfile:
                 this_config.write(configfile)
 
-            self.tile_draw = DrawPile(config.get('Grid', 'tile_temp'), 'tile_drawpile')                  # Create the draw pile for the randomized tiles from the temp file
+            # Create the draw pile for the randomized tiles from the temp file.
+            self.tile_draw = DrawPile(config.get('Grid', 'tile_temp'), 'tile_drawpile')
 
-        ''' Now we loop over the randomized tiles and assign a random tile from the draw pile.
-        NB we need to process the land-only randoms first, otherwise we may run out of land tiles before we get to them.'''
+        # Now we loop over the randomized tiles and assign a random tile from the draw pile.
         for tile, index in zip(self.tiles,self.all_hexes):
-            if tile == 'land':  # randomized land only. If we draw water, we put it back, shuffle, and try again
+            # Process randomized land; draw tiles until land is drawn. If we draw water, we put it back, shuffle,
+            # and draw again.
+            if tile == 'land':
                 iswater = True
                 iterations = 0
-                while iswater:  # Keep drawing until a non-water tile is drawn
+                # Keep drawing until a non-water tile is drawn
+                while iswater:
                     drawn_tile = self.tile_draw.lose_card()
-                    if drawn_tile.name == 'water' and iterations < 2*self.tile_draw.get_size():    # At some point we may need to give up :)
+                    # At some point we may need to give up because there may be a mistake in the game setup.
+                    if drawn_tile.name == 'water' and iterations < 2*self.tile_draw.get_size():
                         self.tile_draw.receive_card(drawn_tile)
                         self.tile_draw.shuffle_stack()
                         iswater = True
@@ -249,12 +265,15 @@ class Grid(Hexgrid):
                     else:
                         self.tiles[index] = drawn_tile.name
                         iswater = False
-            elif tile == 'random':  # fully randomized tiles, including water
+            # PRocess fully randomized tiles, including water.
+            elif tile == 'random':
                 drawn_tile = self.tile_draw.lose_card()
                 self.tiles[index] = drawn_tile.name
 
-        self.set_land_connectivity()        # Set the land connectivity matrix
-        self.set_water_connectivity()       # Set the water connectivity matrix
+        # Set the land connectivity matrix.
+        self.set_land_connectivity()
+        # Set the water connectivity matrix.
+        self.set_water_connectivity()
 
     def move_object(self, new_index):
         ''' Attempts to move a pawn from the current location to new_index'''

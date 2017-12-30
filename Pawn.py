@@ -44,7 +44,7 @@ class Boat(Pawn):
         print('Creating new boat ' + label + ' for player ' + owner)
         super().__init__(owner,label,color,terrain)
         self.resource_slots = slots
-        self.resources = cards.SizedStack('resources',6)
+        self.resources = Cards.SizedStack('resources',6)
         #self.moves = 0
         #self.moves_per_turn = 3
         #self.ring = 2
@@ -123,7 +123,7 @@ class Harbour(Pawn):
         super().__init__(owner,label,color,terrain)
         self.moves = 0
         self.moves_per_turn = 0
-        self.resources = cards.Stack('harbour')
+        self.resources = Cards.Stack('harbour')
 
 
 class Home(Pawn):
@@ -132,4 +132,4 @@ class Home(Pawn):
         super().__init__(owner,label,color,terrain)
         self.moves = 0
         self.moves_per_turn = 0
-        self.resources = cards.Stack('home')
+        self.resources = Cards.Stack('home')
